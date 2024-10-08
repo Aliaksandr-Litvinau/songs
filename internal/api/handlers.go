@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 )
 
 var Db *gorm.DB
@@ -28,11 +29,44 @@ func GetSong(c *gin.Context) {
 
 func GetSongs(c *gin.Context) {
 	var songs []models.Song
-	if err := Db.Find(&songs).Error; err != nil {
+	query := Db.Model(&models.Song{})
+
+	// Фильтрация с экранированием имен столбцов
+	if group := c.Query("group"); group != "" {
+		query = query.Where("\"group\" LIKE ?", "%"+group+"%")
+	}
+	if song := c.Query("song"); song != "" {
+		query = query.Where("\"song\" LIKE ?", "%"+song+"%")
+	}
+	if releaseDate := c.Query("releaseDate"); releaseDate != "" {
+		query = query.Where("\"release_date\" = ?", releaseDate)
+	}
+	if text := c.Query("text"); text != "" {
+		query = query.Where("\"text\" LIKE ?", "%"+text+"%")
+	}
+	if link := c.Query("link"); link != "" {
+		query = query.Where("\"link\" LIKE ?", "%"+link+"%")
+	}
+
+	// Пагинация
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	offset := (page - 1) * pageSize
+
+	var total int64
+	query.Count(&total)
+
+	if err := query.Offset(offset).Limit(pageSize).Find(&songs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve songs"})
 		return
 	}
-	c.JSON(http.StatusOK, songs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"songs": songs,
+		"total": total,
+		"page":  page,
+		"pages": (int(total) + pageSize - 1) / pageSize,
+	})
 }
 
 func AddSong(c *gin.Context) {
