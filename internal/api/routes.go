@@ -8,7 +8,11 @@ func SetupRouter() *gin.Engine {
 	api := r.Group("/api")
 	{
 		api.GET("/songs", GetSongs)
+		api.GET("/songs/:id", GetSong)
 		api.POST("/songs", AddSong)
+		api.PUT("/songs/:id", UpdateSong)
+		api.PATCH("/songs/:id", PartialUpdateSong)
+		api.DELETE("/songs/:id", DeleteSong)
 	}
 
 	return r
