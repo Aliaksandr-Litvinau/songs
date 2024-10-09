@@ -13,6 +13,7 @@ func SetupRouter() *gin.Engine {
 		api.PUT("/songs/:id", UpdateSong)
 		api.PATCH("/songs/:id", PartialUpdateSong)
 		api.DELETE("/songs/:id", DeleteSong)
+		api.GET("/songs/:id/verses", GetSongVerses)
 	}
 
 	return r

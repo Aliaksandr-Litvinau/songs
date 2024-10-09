@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var Db *gorm.DB
@@ -161,4 +162,53 @@ func DeleteSong(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Song deleted successfully"})
+}
+
+// Функция для разбиения текста на куплеты (мое предположение, что куплеты разделяются 2 знаками \n\n)
+// TODO: Здесь я иду к аналитику и уточняю логику для получения куплетов, так как в ТЗ она не описана
+func getVerses(text string) []string {
+	return strings.Split(text, "\n\n")
+}
+
+func GetSongVerses(c *gin.Context) {
+	var song models.Song
+	id := c.Param("id")
+
+	if err := Db.First(&song, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
+		return
+	}
+
+	verses := getVerses(song.Text)
+
+	pageStr := c.Query("page")
+	sizeStr := c.Query("size")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size < 1 {
+		size = 1
+	}
+
+	start := (page - 1) * size
+	end := start + size
+	if start >= len(verses) {
+		c.JSON(http.StatusOK, gin.H{"verses": []string{}, "message": "No more verses"})
+		return
+	}
+
+	if end > len(verses) {
+		end = len(verses)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"verses": verses[start:end],
+		"page":   page,
+		"size":   size,
+		"total":  len(verses),
+	})
 }
