@@ -14,6 +14,17 @@ import (
 
 var Db *gorm.DB
 
+// GetSong godoc
+// @Summary Get a song by ID
+// @Description Get details of a specific song
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param id path int true "Song ID"
+// @Success 200 {object} models.Song
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /songs/{id} [get]
 func GetSong(c *gin.Context) {
 	id := c.Param("id")
 	if id != "" {
@@ -31,6 +42,22 @@ func GetSong(c *gin.Context) {
 	}
 }
 
+// GetSongs godoc
+// @Summary List songs
+// @Description Get a list of songs with optional filtering and pagination
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param group query string false "Filter by group name"
+// @Param song query string false "Filter by song name"
+// @Param releaseDate query string false "Filter by release date"
+// @Param text query string false "Filter by song text"
+// @Param link query string false "Filter by song link"
+// @Param page query int false "Page number" default(1)
+// @Param pageSize query int false "Number of items per page" default(10)
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]string
+// @Router /songs [get]
 func GetSongs(c *gin.Context) {
 	var songs []models.Song
 	query := Db.Model(&models.Song{})
@@ -73,6 +100,17 @@ func GetSongs(c *gin.Context) {
 	})
 }
 
+// AddSong godoc
+// @Summary Add a new song
+// @Description Add a new song to the database
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param song body models.Song true "Song object"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /songs [post]
 func AddSong(c *gin.Context) {
 	var input models.Song
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -111,6 +149,19 @@ func AddSong(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Song created successfully", "song": input})
 }
 
+// UpdateSong godoc
+// @Summary Update a song
+// @Description Update an existing song's details
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param id path int true "Song ID"
+// @Param song body models.Song true "Updated song object"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /songs/{id} [put]
 func UpdateSong(c *gin.Context) {
 	var input models.Song
 	id := c.Param("id")
@@ -140,6 +191,19 @@ func UpdateSong(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Song updated successfully", "song": song})
 }
 
+// PartialUpdateSong godoc
+// @Summary Partially update a song
+// @Description Update specific fields of an existing song
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param id path int true "Song ID"
+// @Param song body map[string]interface{} true "Fields to update"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /songs/{id} [patch]
 func PartialUpdateSong(c *gin.Context) {
 	id := c.Param("id")
 
@@ -179,6 +243,16 @@ func PartialUpdateSong(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Song partially updated successfully", "song": song})
 }
 
+// DeleteSong godoc
+// @Summary Delete a song
+// @Description Delete a song from the database
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param id path int true "Song ID"
+// @Success 200 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /songs/{id} [delete]
 func DeleteSong(c *gin.Context) {
 	id := c.Param("id")
 
@@ -196,6 +270,18 @@ func getVerses(text string) []string {
 	return strings.Split(text, "\n\n")
 }
 
+// GetSongVerses godoc
+// @Summary Get verses of a song
+// @Description Get verses of a specific song with pagination
+// @Tags songs
+// @Accept json
+// @Produce json
+// @Param id path int true "Song ID"
+// @Param page query int false "Page number" default(1)
+// @Param size query int false "Number of verses per page" default(1)
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /songs/{id}/verses [get]
 func GetSongVerses(c *gin.Context) {
 	var song models.Song
 	id := c.Param("id")
