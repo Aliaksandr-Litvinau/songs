@@ -24,7 +24,7 @@ var Db *gorm.DB
 // @Success 200 {object} models.Song
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /songs/{id} [get]
+// @Router /api/songs/{id} [get]
 func GetSong(c *gin.Context) {
 	id := c.Param("id")
 	if id != "" {
@@ -57,7 +57,7 @@ func GetSong(c *gin.Context) {
 // @Param pageSize query int false "Number of items per page" default(10)
 // @Success 200 {object} map[string]interface{}
 // @Failure 500 {object} map[string]string
-// @Router /songs [get]
+// @Router /api/songs [get]
 func GetSongs(c *gin.Context) {
 	var songs []models.Song
 	query := Db.Model(&models.Song{})
@@ -110,7 +110,7 @@ func GetSongs(c *gin.Context) {
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /songs [post]
+// @Router /api/songs [post]
 func AddSong(c *gin.Context) {
 	var input models.Song
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -161,7 +161,7 @@ func AddSong(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /songs/{id} [put]
+// @Router /api/songs/{id} [put]
 func UpdateSong(c *gin.Context) {
 	var input models.Song
 	id := c.Param("id")
@@ -203,7 +203,7 @@ func UpdateSong(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /songs/{id} [patch]
+// @Router /api/songs/{id} [patch]
 func PartialUpdateSong(c *gin.Context) {
 	id := c.Param("id")
 
@@ -252,7 +252,7 @@ func PartialUpdateSong(c *gin.Context) {
 // @Param id path int true "Song ID"
 // @Success 200 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /songs/{id} [delete]
+// @Router /api/songs/{id} [delete]
 func DeleteSong(c *gin.Context) {
 	id := c.Param("id")
 
@@ -281,7 +281,7 @@ func getVerses(text string) []string {
 // @Param size query int false "Number of verses per page" default(1)
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} map[string]string
-// @Router /songs/{id}/verses [get]
+// @Router /api/songs/{id}/verses [get]
 func GetSongVerses(c *gin.Context) {
 	var song models.Song
 	id := c.Param("id")
