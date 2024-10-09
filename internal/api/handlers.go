@@ -1,10 +1,13 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"gin/internal/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -74,6 +77,29 @@ func AddSong(c *gin.Context) {
 	var input models.Song
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON format"})
+		return
+	}
+
+	apiURL := os.Getenv("MUSIC_INFO_API_URL") // TODO: added variable in the .env file
+	if apiURL == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "API URL not configured"})
+		return
+	}
+
+	resp, err := http.Get(fmt.Sprintf("%s/info?group=%s&song=%s", apiURL, input.Group, input.Song))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get song details from API"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid response from API"})
+		return
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&input); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode API response"})
 		return
 	}
 
