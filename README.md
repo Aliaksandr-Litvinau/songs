@@ -30,7 +30,7 @@ This project built using **Gin Gonic** (a Go web framework) and **Gorm** (a Go O
 1. **Clone the repository:**
 
 ```bash
-git clone ...
+git clone git@github.com:Aliaksandr-Litvinau/songs.git
 cd songs
 ```
 
@@ -41,7 +41,6 @@ Create a `.env` file in the root directory of the project, with the following co
 ```bash
 PORT=8080
 DATABASE_URL=postgres://user:password@localhost:5432/music_library
-SWAGGER_URL=http://localhost:8080/swagger
 ```
 
 3. **Run the application with Docker:**
@@ -51,6 +50,10 @@ This project uses Docker for containerization. The `docker-compose.yml` file pro
 ```bash
 docker-compose up --build
 ```
+
+> After the containers are built and running, the API and Swagger documentation will be accessible.
+Swagger Documentation:
+Visit ```/swagger/index.html``` to explore and interact with the API.
 
 4. **Database Migration:**
 
