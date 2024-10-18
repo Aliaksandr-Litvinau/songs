@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gin/config"
 	_ "gin/docs"
 	"gin/internal/api"
 	"gin/internal/models"
@@ -14,8 +15,10 @@ import (
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	dsn := "host=db user=user dbname=music_library port=5432 password=password"
+	cfg := config.LoadConfig()
+	dsn := cfg.DatabaseURL
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
 	if err != nil {
 		logrus.Fatal("failed to connect database: ", err)
 	}
