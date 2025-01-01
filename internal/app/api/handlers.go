@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"gin/internal/models"
+	"gin/internal/app/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"

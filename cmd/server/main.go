@@ -1,10 +1,10 @@
 package main
 
 import (
-	"gin/config"
 	_ "gin/docs"
-	"gin/internal/api"
-	"gin/internal/models"
+	api2 "gin/internal/app/api"
+	"gin/internal/app/config"
+	"gin/internal/app/models"
 	"github.com/sirupsen/logrus"
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
@@ -27,9 +27,9 @@ func main() {
 		logrus.Fatal("failed to migrate database: ", err)
 	}
 
-	api.Db = db
+	api2.Db = db
 
-	r := api.SetupRouter()
+	r := api2.SetupRouter()
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	if err := r.Run(":8080"); err != nil {
