@@ -40,7 +40,7 @@ func run() error {
 	r := api.SetupRouter()
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	if err := r.Run(":8080"); err != nil {
+	if err := r.Run(cfg.HTTPAddr); err != nil {
 		log.Println("failed to run server: %v", err)
 	}
 
