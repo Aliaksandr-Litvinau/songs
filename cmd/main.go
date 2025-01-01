@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"gin/internal/app/api"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	// _ "gin/docs"
 	"gin/internal/app/config"
 	//"gin/internal/app/models"
@@ -9,14 +12,12 @@ import (
 	//"github.com/swaggo/files"
 	//"github.com/swaggo/gin-swagger"
 	"log"
-	"os"
 )
 
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	os.Exit(0)
 }
 
 func run() error {
@@ -34,6 +35,13 @@ func run() error {
 		//if err := runPgMigrations(cfg.DSN, cfg.MigrationsPath); err != nil {
 		//	return fmt.Errorf("runPgMigrations failed: %w", err)
 		//}
+	}
+
+	r := api.SetupRouter()
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	if err := r.Run(":8080"); err != nil {
+		log.Println("failed to run server: %v", err)
 	}
 
 	return nil
