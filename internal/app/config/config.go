@@ -1,24 +1,30 @@
 package config
 
 import (
-	"github.com/spf13/viper"
-	"log"
+	"os"
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	SwaggerURL  string
+	HTTPAddr       string
+	DSN            string
+	MigrationsPath string
+	SwaggerURL     string
 }
 
-func LoadConfig() *Config {
-	viper.SetConfigFile(".env")
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalf("Error reading config file: %v", err)
+// Read reads config from environment.
+func Read() Config {
+	var config Config
+	httpAddr, exists := os.LookupEnv("HTTP_ADDR")
+	if exists {
+		config.HTTPAddr = httpAddr
 	}
-	return &Config{
-		Port:        viper.GetString("PORT"),
-		DatabaseURL: viper.GetString("DATABASE_URL"),
-		SwaggerURL:  viper.GetString("SWAGGER_URL"),
+	dsn, exists := os.LookupEnv("DSN")
+	if exists {
+		config.DSN = dsn
 	}
+	migrationsPath, exists := os.LookupEnv("MIGRATIONS_PATH")
+	if exists {
+		config.MigrationsPath = migrationsPath
+	}
+	return config
 }
