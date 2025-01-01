@@ -10,7 +10,7 @@ RUN go mod download
 
 COPY . .
 
-RUN swag init -g internal/api/handlers.go
+RUN swag init -g internal/app/api/handlers.go
 
 RUN go build -o main ./cmd/server
 
