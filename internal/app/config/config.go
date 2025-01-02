@@ -1,8 +1,6 @@
 package config
 
 import (
-	"github.com/joho/godotenv"
-	"log"
 	"os"
 )
 
@@ -15,25 +13,16 @@ type Config struct {
 
 // Read reads config from environment.
 func Read() Config {
-	var config Config
-	// Find .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+	return Config{
+		HTTPAddr:       getEnv("HTTP_ADDR", ":8080"),
+		DSN:            getEnv("DSN", "postgres://user:password@localhost:5432/music_library?sslmode=disable"),
+		MigrationsPath: getEnv("MIGRATIONS_PATH", "/songs/internal/app/migrations"),
 	}
+}
 
-	// Getting and using a value from .env
-	httpAddr := os.Getenv("HTTP_ADDR")
-	if httpAddr != "" {
-		config.HTTPAddr = httpAddr
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
 	}
-	dsn := os.Getenv("DSN")
-	if dsn != "" {
-		config.DSN = dsn
-	}
-	migrationsPath := os.Getenv("MIGRATIONS_PATH")
-	if migrationsPath != "" {
-		config.MigrationsPath = migrationsPath
-	}
-	return config
+	return defaultValue
 }

@@ -1,23 +1,26 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"gin/internal/app/api"
+	"log"
+	"os"
+	"songs/internal/app/api"
+	"songs/internal/app/config"
+	pg "songs/internal/pkg"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	// _ "gin/docs"
-	"gin/internal/app/config"
-	//"gin/internal/app/models"
-	pg "gin/internal/pkg"
-	//"github.com/swaggo/files"
-	//"github.com/swaggo/gin-swagger"
-	"log"
 )
 
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
+	os.Exit(0)
 }
 
 func run() error {
@@ -29,12 +32,10 @@ func run() error {
 		return fmt.Errorf("pg.Dial failed: %w", err)
 	}
 
-	// TODO: add migrations
 	if pgDB != nil {
-		log.Println("Running PostgreSQL migrations")
-		//if err := runPgMigrations(cfg.DSN, cfg.MigrationsPath); err != nil {
-		//	return fmt.Errorf("runPgMigrations failed: %w", err)
-		//}
+		if err := runPgMigrations(cfg.MigrationsPath, cfg.DSN); err != nil {
+			return fmt.Errorf("runPgMigrations failed: %w", err)
+		}
 	}
 
 	r := api.SetupRouter()
@@ -44,5 +45,28 @@ func run() error {
 		log.Println("failed to run server: %v", err)
 	}
 
+	return nil
+}
+
+func runPgMigrations(path, dsn string) error {
+	if path == "" {
+		return errors.New("no migrations path provided")
+	}
+	if dsn == "" {
+		return errors.New("no DSN provided")
+	}
+
+	log.Println("Initializing migrations")
+	m, err := migrate.New(path, dsn)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Running migrations")
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
+	log.Println("Migrations completed successfully")
 	return nil
 }
