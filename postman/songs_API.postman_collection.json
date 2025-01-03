@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "Songs Library API",
+    "description": "API for managing a library of songs with lyrics",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Songs",
+      "description": "Endpoints for managing songs",
+      "item": [
+        {
+          "name": "Get All Songs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs?page=1&page_size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10"
+                },
+                {
+                  "key": "title",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Retrieve a paginated list of songs with optional filters"
+          }
+        },
+        {
+          "name": "Get Song by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs", "1"]
+            },
+            "description": "Get details of a specific song by ID"
+          }
+        },
+        {
+          "name": "Create Song",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"group_id\": 1,\n    \"title\": \"New Song\",\n    \"release_date\": \"2024-03-15T00:00:00Z\",\n    \"text\": \"Song lyrics go here...\",\n    \"link\": \"http://example.com/song\"\n}"
+            },
+            "description": "Create a new song"
+          }
+        },
+        {
+          "name": "Update Song",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs", "1"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"group_id\": 1,\n    \"title\": \"Updated Song Title\",\n    \"release_date\": \"2024-03-15T00:00:00Z\",\n    \"text\": \"Updated lyrics...\",\n    \"link\": \"http://example.com/updated-song\"\n}"
+            },
+            "description": "Update an existing song"
+          }
+        },
+        {
+          "name": "Partial Update Song",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs", "1"]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Partially Updated Title\"\n}"
+            },
+            "description": "Partially update a song"
+          }
+        },
+        {
+          "name": "Delete Song",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs", "1"]
+            },
+            "description": "Delete a song by ID"
+          }
+        },
+        {
+          "name": "Get Song Verses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/songs/1/verses?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "songs", "1", "verses"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get paginated verses of a song"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
