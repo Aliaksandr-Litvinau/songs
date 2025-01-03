@@ -1,6 +1,8 @@
 # Start from a small, secure base image
 FROM golang:1.23-alpine AS builder
 
+#RUN go install github.com/swaggo/swag/cmd/swag@latest
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -12,6 +14,9 @@ RUN go mod download
 
 # Copy the source code into the container
 COPY . .
+
+# Generate Swagger documentation
+#RUN swag init -g internal/app/api/handlers.go -o ./internal/app/docs
 
 # Build the Go binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/main.go

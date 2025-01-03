@@ -16,7 +16,7 @@ func Read() Config {
 	return Config{
 		HTTPAddr:       getEnv("HTTP_ADDR", ":8080"),
 		DSN:            getEnv("DSN", "postgres://user:password@localhost:5432/music_library?sslmode=disable"),
-		MigrationsPath: getEnv("MIGRATIONS_PATH", "/songs/internal/app/migrations"),
+		MigrationsPath: getEnv("MIGRATIONS_PATH", "file:///songs/internal/app/migrations"),
 	}
 }
 
