@@ -2,6 +2,9 @@ package transport
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/swaggo/files"
+	"github.com/swaggo/gin-swagger"
+	_ "songs/docs"
 	"songs/internal/app/service"
 )
 
@@ -10,6 +13,7 @@ func SetupRouter(svc service.SongService) *gin.Engine {
 
 	handler := NewHandler(svc)
 
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := r.Group("/api/v1")
 	{
 		api.GET("/songs", handler.GetSongs)
