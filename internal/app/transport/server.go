@@ -4,21 +4,20 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"songs/internal/app/service"
 )
 
 type Server struct {
-	httpServer *http.Server
-	service    service.SongService
+	httpServer  *http.Server
+	songService SongService
 }
 
-func NewServer(addr string, service service.SongService) *Server {
+func NewServer(addr string, songService SongService) *Server {
 	server := &Server{
-		service: service,
+		songService: songService,
 	}
 
 	// Initialize router with service
-	router := SetupRouter(service)
+	router := SetupRouter(songService)
 
 	// Setup http server
 	server.httpServer = &http.Server{

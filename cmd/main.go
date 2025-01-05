@@ -42,7 +42,7 @@ func run() error {
 	songService := service.NewSongService(songRepo)
 
 	// Create and run the server
-	server := transport.NewServer(cfg.HTTPAddr, songService)
+	server := transport.NewServer(cfg.HTTPAddr, &songService)
 	if err := server.Run(); err != nil {
 		log.Printf("failed to run server: %v", err)
 		return err

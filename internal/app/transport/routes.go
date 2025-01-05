@@ -5,10 +5,9 @@ import (
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
 	_ "songs/docs"
-	"songs/internal/app/service"
 )
 
-func SetupRouter(svc service.SongService) *gin.Engine {
+func SetupRouter(svc SongService) *gin.Engine {
 	r := gin.Default()
 
 	handler := NewHandler(svc)

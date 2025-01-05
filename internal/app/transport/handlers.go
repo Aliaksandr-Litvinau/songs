@@ -3,15 +3,14 @@ package transport
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"songs/internal/app/service"
 	"strconv"
 )
 
 type Handler struct {
-	songService service.SongService
+	songService SongService
 }
 
-func NewHandler(songService service.SongService) *Handler {
+func NewHandler(songService SongService) *Handler {
 	return &Handler{
 		songService: songService,
 	}
