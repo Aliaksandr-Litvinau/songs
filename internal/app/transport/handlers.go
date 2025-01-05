@@ -45,7 +45,7 @@ func (h *Handler) GetSong(r common.RequestReader, w http.ResponseWriter) error {
 
 	song, err := h.songService.GetSong(r.Context(), songID)
 	if err != nil {
-		if errors.Is(err, domain.ErrSongNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)
 			return nil
 		}
@@ -131,7 +131,7 @@ func (h *Handler) CreateSong(r common.RequestReader, w http.ResponseWriter) erro
 
 	song, err := ToSongDomain(req)
 	if err != nil {
-		server.BadRequest("invalid-song-data", domain.ErrInvalidSongData, w)
+		server.BadRequest("invalid-song-data", domain.ErrInvalidData, w)
 		return nil
 	}
 
@@ -160,13 +160,13 @@ func (h *Handler) CreateSong(r common.RequestReader, w http.ResponseWriter) erro
 func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) error {
 	idStr, err := r.PathParam("id")
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
@@ -178,13 +178,13 @@ func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) erro
 
 	song, err := ToSongDomain(req)
 	if err != nil {
-		server.BadRequest("invalid-song-data", domain.ErrInvalidSongData, w)
+		server.BadRequest("invalid-song-data", domain.ErrInvalidData, w)
 		return nil
 	}
 
 	updatedSong, err := h.songService.UpdateSong(r.Context(), id, song)
 	if err != nil {
-		if errors.Is(err, domain.ErrSongNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)
 			return nil
 		}
@@ -211,13 +211,13 @@ func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) erro
 func (h *Handler) PartialUpdateSong(r common.RequestReader, w http.ResponseWriter) error {
 	idStr, err := r.PathParam("id")
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
@@ -229,7 +229,7 @@ func (h *Handler) PartialUpdateSong(r common.RequestReader, w http.ResponseWrite
 
 	updatedSong, err := h.songService.PartialUpdateSong(r.Context(), id, updates)
 	if err != nil {
-		if errors.Is(err, domain.ErrSongNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)
 			return nil
 		}
@@ -255,18 +255,18 @@ func (h *Handler) PartialUpdateSong(r common.RequestReader, w http.ResponseWrite
 func (h *Handler) DeleteSong(r common.RequestReader, w http.ResponseWriter) error {
 	idStr, err := r.PathParam("id")
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
 		return nil
 	}
 
 	if err := h.songService.DeleteSong(r.Context(), id); err != nil {
-		if errors.Is(err, domain.ErrSongNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)
 			return nil
 		}
@@ -317,7 +317,7 @@ func (h *Handler) GetSongVerses(r common.RequestReader, w http.ResponseWriter) e
 
 	verses, total, err := h.songService.GetSongVerses(r.Context(), songID, page, size)
 	if err != nil {
-		if errors.Is(err, domain.ErrSongNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)
 			return nil
 		}

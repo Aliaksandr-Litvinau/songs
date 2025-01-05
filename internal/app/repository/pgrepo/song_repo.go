@@ -3,8 +3,8 @@ package pgrepo
 import (
 	"context"
 	"errors"
-	"fmt"
 	"songs/internal/app/domain"
+	"songs/internal/app/repository/models"
 	"strings"
 
 	"gorm.io/gorm"
@@ -25,54 +25,56 @@ func NewSongRepo(db *gorm.DB) *SongRepo {
 // GetSong retrieves a song by ID
 func (r SongRepo) GetSong(ctx context.Context, id int) (*domain.Song, error) {
 	if id <= 0 {
-		return nil, fmt.Errorf("invalid song ID")
+		return nil, domain.ErrInvalidID
 	}
 
-	var song domain.Song
-	result := r.db.WithContext(ctx).First(&song, id)
+	var dbSong models.Song
+	result := r.db.WithContext(ctx).First(&dbSong, id)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("song not found")
+			return nil, domain.ErrNotFound
 		}
-		return nil, fmt.Errorf("failed to get song: %w", result.Error)
+		return nil, domain.ErrDatabase
 	}
 
+	song := dbSong.ToDomain()
 	return &song, nil
 }
 
-// GetSongs retrieves a list of songs with filtering and pagination
+// GetSongs retrieves songs with filtering and pagination
 func (r SongRepo) GetSongs(ctx context.Context, filter map[string]string, page, pageSize int) ([]*domain.Song, int64, error) {
-	var songs []*domain.Song
+	if page <= 0 || pageSize <= 0 {
+		return nil, 0, domain.ErrInvalidData
+	}
+
 	var total int64
-	query := r.db.WithContext(ctx).Model(&domain.Song{})
+	query := r.db.WithContext(ctx).Model(&models.Song{})
 
 	// Apply filters
-	for key, value := range filter {
-		switch key {
-		case "title":
-			query = query.Where("title LIKE ?", "%"+value+"%")
-		case "group_id":
-			query = query.Where("group_id = ?", value)
-		case "link":
-			query = query.Where("link LIKE ?", "%"+value+"%")
-		}
+	if title, ok := filter["title"]; ok && title != "" {
+		query = query.Where("title ILIKE ?", "%"+title+"%")
+	}
+	if groupID, ok := filter["group_id"]; ok && groupID != "" {
+		query = query.Where("group_id = ?", groupID)
 	}
 
-	// Count total before pagination
+	// Get total count
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to count songs: %w", err)
+		return nil, 0, domain.ErrDatabase
 	}
 
-	// Apply pagination
+	// Get paginated results
+	var dbSongs []models.Song
 	offset := (page - 1) * pageSize
-	result := query.
-		Offset(offset).
-		Limit(pageSize).
-		Order("id asc").
-		Find(&songs)
+	if err := query.Offset(offset).Limit(pageSize).Find(&dbSongs).Error; err != nil {
+		return nil, 0, domain.ErrDatabase
+	}
 
-	if result.Error != nil {
-		return nil, 0, fmt.Errorf("failed to get songs: %w", result.Error)
+	// Convert to domain models
+	songs := make([]*domain.Song, len(dbSongs))
+	for i, dbSong := range dbSongs {
+		song := dbSong.ToDomain()
+		songs[i] = &song
 	}
 
 	return songs, total, nil
@@ -80,64 +82,89 @@ func (r SongRepo) GetSongs(ctx context.Context, filter map[string]string, page, 
 
 // CreateSong creates a new song
 func (r SongRepo) CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
-	result := r.db.WithContext(ctx).Create(song)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to create song: %w", result.Error)
+	if err := validateSong(*song); err != nil {
+		return nil, err
 	}
 
-	return song, nil
+	dbSong := models.ToDBModel(*song)
+
+	if err := r.db.WithContext(ctx).Create(&dbSong).Error; err != nil {
+		if isDuplicateError(err) {
+			return nil, domain.ErrDuplicate
+		}
+		return nil, domain.ErrDatabase
+	}
+
+	result := dbSong.ToDomain()
+	return &result, nil
 }
 
 // UpdateSong updates an existing song
 func (r *SongRepo) UpdateSong(ctx context.Context, id int, song *domain.Song) (*domain.Song, error) {
-	var existingSong domain.Song
-	if err := r.db.WithContext(ctx).First(&existingSong, id).Error; err != nil {
+	if id <= 0 {
+		return nil, domain.ErrInvalidID
+	}
+
+	if err := validateSong(*song); err != nil {
 		return nil, err
 	}
 
-	song.ID = id
+	dbSong := models.ToDBModel(*song)
+	dbSong.ID = id
 
-	if err := r.db.WithContext(ctx).Save(song).Error; err != nil {
-		return nil, fmt.Errorf("failed to update song: %w", err)
+	result := r.db.WithContext(ctx).Save(&dbSong)
+	if result.Error != nil {
+		if isDuplicateError(result.Error) {
+			return nil, domain.ErrDuplicate
+		}
+		return nil, domain.ErrDatabase
+	}
+	if result.RowsAffected == 0 {
+		return nil, domain.ErrNotFound
 	}
 
-	var updatedSong domain.Song
-	if err := r.db.WithContext(ctx).First(&updatedSong, id).Error; err != nil {
-		return nil, fmt.Errorf("failed to get updated song: %w", err)
-	}
-
+	updatedSong := dbSong.ToDomain()
 	return &updatedSong, nil
 }
 
 // PartialUpdateSong updates specific fields of a song
 func (r *SongRepo) PartialUpdateSong(ctx context.Context, id int, updates map[string]interface{}) (*domain.Song, error) {
-	var song domain.Song
-	if err := r.db.WithContext(ctx).First(&song, id).Error; err != nil {
-		return nil, err
+	if id <= 0 {
+		return nil, domain.ErrInvalidID
 	}
 
-	result := r.db.WithContext(ctx).Model(&song).Updates(updates)
+	if len(updates) == 0 {
+		return nil, domain.ErrInvalidData
+	}
+
+	var updatedDBSong models.Song
+	result := r.db.WithContext(ctx).Model(&models.Song{}).Where("id = ?", id).Updates(updates).First(&updatedDBSong)
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to update song: %w", result.Error)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrNotFound
+		}
+		if isDuplicateError(result.Error) {
+			return nil, domain.ErrDuplicate
+		}
+		return nil, domain.ErrDatabase
 	}
 
-	if err := r.db.WithContext(ctx).First(&song, id).Error; err != nil {
-		return nil, err
-	}
-
+	song := updatedDBSong.ToDomain()
 	return &song, nil
 }
 
 // DeleteSong deletes a song by ID
 func (r SongRepo) DeleteSong(ctx context.Context, id int) error {
-	result := r.db.WithContext(ctx).Delete(&domain.Song{}, id)
-
-	if result.Error != nil {
-		return fmt.Errorf("failed to delete song: %w", result.Error)
+	if id <= 0 {
+		return domain.ErrInvalidID
 	}
 
+	result := r.db.WithContext(ctx).Delete(&models.Song{}, id)
+	if result.Error != nil {
+		return domain.ErrDatabase
+	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("song not found")
+		return domain.ErrNotFound
 	}
 
 	return nil
@@ -145,6 +172,14 @@ func (r SongRepo) DeleteSong(ctx context.Context, id int) error {
 
 // GetSongVerses retrieves verses of a song with pagination
 func (r SongRepo) GetSongVerses(ctx context.Context, id int, page, size int) ([]string, int, error) {
+	if id <= 0 {
+		return nil, 0, domain.ErrInvalidID
+	}
+
+	if page <= 0 || size <= 0 {
+		return nil, 0, domain.ErrInvalidData
+	}
+
 	song, err := r.GetSong(ctx, id)
 	if err != nil {
 		return nil, 0, err
@@ -165,4 +200,25 @@ func (r SongRepo) GetSongVerses(ctx context.Context, id int, page, size int) ([]
 	}
 
 	return verses[start:end], totalVerses, nil
+}
+
+// validateSong validates song fields
+func validateSong(song domain.Song) error {
+	if song.Title == "" {
+		return domain.ErrRequired
+	}
+	if song.GroupID <= 0 {
+		return domain.ErrInvalidID
+	}
+	if song.ReleaseDate.IsZero() {
+		return domain.ErrRequired
+	}
+	return nil
+}
+
+// isDuplicateError checks if the error is a duplicate key error
+func isDuplicateError(err error) bool {
+	return strings.Contains(err.Error(), "duplicate key") ||
+		strings.Contains(err.Error(), "unique constraint") ||
+		strings.Contains(err.Error(), "Duplicate entry")
 }

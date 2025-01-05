@@ -1,23 +1,55 @@
 package domain
 
-import "songs/internal/app/common/slugerrors"
+import (
+	"songs/internal/app/common/slugerrors"
+)
 
 var (
-	ErrSongNotFound = slugerrors.NewError(
-		"song-not-found",
+	ErrNotFound = slugerrors.NewError(
+		"not-found",
 		slugerrors.ErrorTypeNotFound,
-		"song not found",
+		"resource not found",
 	)
 
-	ErrInvalidSongID = slugerrors.NewError(
-		"invalid-song-id",
+	ErrInvalidData = slugerrors.NewError(
+		"invalid-data",
 		slugerrors.ErrorTypeBadRequest,
-		"invalid song ID",
+		"invalid data provided",
 	)
 
-	ErrInvalidSongData = slugerrors.NewError(
-		"invalid-song-data",
+	ErrInvalidID = slugerrors.NewError(
+		"invalid-id",
 		slugerrors.ErrorTypeBadRequest,
-		"invalid song data",
+		"invalid ID provided",
+	)
+
+	ErrRequired = slugerrors.NewError(
+		"required-field",
+		slugerrors.ErrorTypeBadRequest,
+		"required field is missing",
+	)
+
+	ErrDuplicate = slugerrors.NewError(
+		"duplicate-entry",
+		slugerrors.ErrorTypeBadRequest,
+		"duplicate entry",
+	)
+
+	ErrDatabase = slugerrors.NewError(
+		"database-error",
+		slugerrors.ErrorTypeInternal,
+		"database error occurred",
+	)
+
+	ErrValidation = slugerrors.NewError(
+		"validation-error",
+		slugerrors.ErrorTypeBadRequest,
+		"validation failed",
+	)
+
+	ErrInternal = slugerrors.NewError(
+		"internal-error",
+		slugerrors.ErrorTypeInternal,
+		"internal server error",
 	)
 )

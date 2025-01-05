@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"songs/internal/app/domain"
+	"time"
+)
 
 type Song struct {
 	ID          int       `gorm:"primaryKey" json:"id,omitempty"`
@@ -11,6 +14,28 @@ type Song struct {
 	Link        string    `json:"link"`
 }
 
-func (Song) TableName() string {
+func (s Song) TableName() string {
 	return "songs"
+}
+
+func (s *Song) ToDomain() domain.Song {
+	return domain.Song{
+		ID:          s.ID,
+		GroupID:     s.GroupID,
+		Title:       s.Title,
+		ReleaseDate: s.ReleaseDate,
+		Text:        s.Text,
+		Link:        s.Link,
+	}
+}
+
+func ToDBModel(s domain.Song) Song {
+	return Song{
+		ID:          s.ID,
+		GroupID:     s.GroupID,
+		Title:       s.Title,
+		ReleaseDate: s.ReleaseDate,
+		Text:        s.Text,
+		Link:        s.Link,
+	}
 }
