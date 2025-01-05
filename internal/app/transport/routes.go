@@ -5,6 +5,7 @@ import (
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
 	_ "songs/docs"
+	"songs/internal/app/transport/adapter"
 )
 
 func SetupRouter(svc SongService) *gin.Engine {
@@ -15,13 +16,13 @@ func SetupRouter(svc SongService) *gin.Engine {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	api := r.Group("/api/v1")
 	{
-		api.GET("/songs", handler.GetSongs)
-		api.GET("/songs/:id", handler.GetSong)
-		api.POST("/songs", handler.CreateSong)
-		api.PUT("/songs/:id", handler.UpdateSong)
-		api.PATCH("/songs/:id", handler.PartialUpdateSong)
-		api.DELETE("/songs/:id", handler.DeleteSong)
-		api.GET("/songs/:id/verses", handler.GetSongVerses)
+		api.GET("/songs", adapter.ToGinHandler(handler.GetSongs))
+		api.GET("/songs/:id", adapter.ToGinHandler(handler.GetSong))
+		api.POST("/songs", adapter.ToGinHandler(handler.CreateSong))
+		api.PUT("/songs/:id", adapter.ToGinHandler(handler.UpdateSong))
+		api.PATCH("/songs/:id", adapter.ToGinHandler(handler.PartialUpdateSong))
+		api.DELETE("/songs/:id", adapter.ToGinHandler(handler.DeleteSong))
+		api.GET("/songs/:id/verses", adapter.ToGinHandler(handler.GetSongVerses))
 	}
 
 	return r

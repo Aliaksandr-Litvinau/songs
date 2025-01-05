@@ -37,8 +37,9 @@ func run() error {
 		}
 	}
 
-	// Initialize the song service
+	// Initialize repo
 	songRepo := pgrepo.NewSongRepo(pgDB)
+	// Initialize the song service
 	songService := service.NewSongService(songRepo)
 
 	// Create and run the server

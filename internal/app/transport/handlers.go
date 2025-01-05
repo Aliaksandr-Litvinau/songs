@@ -1,8 +1,11 @@
 package transport
 
 import (
-	"github.com/gin-gonic/gin"
+	"errors"
 	"net/http"
+	"songs/internal/app/common"
+	"songs/internal/app/common/server"
+	"songs/internal/app/domain"
 	"strconv"
 )
 
@@ -27,20 +30,32 @@ func NewHandler(songService SongService) *Handler {
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/songs/{id} [get]
-func (h *Handler) GetSong(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) GetSong(r common.RequestReader, w http.ResponseWriter) error {
+	songIDStr, err := r.PathParam("id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
-		return
+		server.BadRequest("invalid-song-id", err, w)
+		return nil
 	}
 
-	song, err := h.songService.GetSong(c.Request.Context(), id)
+	songID, err := strconv.Atoi(songIDStr)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
-		return
+		server.BadRequest("invalid-song-id", err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, song)
+	song, err := h.songService.GetSong(r.Context(), songID)
+	if err != nil {
+		if errors.Is(err, domain.ErrSongNotFound) {
+			server.NotFound("song-not-found", err, w)
+			return nil
+		}
+		server.RespondWithError(err, w)
+		return nil
+	}
+
+	response := ToSongResponse(song)
+	server.RespondOK(response, w)
+	return nil
 }
 
 // GetSongs godoc
@@ -56,32 +71,40 @@ func (h *Handler) GetSong(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/songs [get]
-func (h *Handler) GetSongs(c *gin.Context) {
-	// Parse pagination parameters
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+func (h *Handler) GetSongs(r common.RequestReader, w http.ResponseWriter) error {
+	pageStr := r.DefaultQueryParam("page", "1")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
 
-	// Create filter map
+	pageSizeStr := r.DefaultQueryParam("page_size", "10")
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+
 	filter := make(map[string]string)
-	if title := c.Query("title"); title != "" {
+	if title := r.QueryParam("title"); title != "" {
 		filter["title"] = title
 	}
-	if groupID := c.Query("group_id"); groupID != "" {
+	if groupID := r.QueryParam("group_id"); groupID != "" {
 		filter["group_id"] = groupID
 	}
 
-	songs, total, err := h.songService.GetSongs(c.Request.Context(), filter, page, pageSize)
+	songs, total, err := h.songService.GetSongs(r.Context(), filter, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve songs"})
-		return
+		server.RespondWithError(err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	server.RespondOK(map[string]interface{}{
 		"songs": songs,
 		"total": total,
 		"page":  page,
 		"pages": (int(total) + pageSize - 1) / pageSize,
-	})
+	}, w)
+	return nil
 }
 
 // CreateSong godoc
@@ -91,29 +114,36 @@ func (h *Handler) GetSongs(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param song body SongRequest true "Song object"
-// @Success 201 {object} SongResponse
+// @Success 200 {object} SongResponse
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/songs [post]
-func (h *Handler) CreateSong(c *gin.Context) {
+func (h *Handler) CreateSong(r common.RequestReader, w http.ResponseWriter) error {
 	var req SongRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
+	if err := r.DecodeBody(&req); err != nil {
+		server.BadRequest("invalid-request-body", err, w)
+		return nil
+	}
+
+	if err := req.Validate(); err != nil {
+		server.BadRequest("validation-failed", err, w)
+		return nil
 	}
 
 	song, err := ToSongDomain(req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		server.BadRequest("invalid-song-data", domain.ErrInvalidSongData, w)
+		return nil
 	}
 
-	createdSong, err := h.songService.CreateSong(c.Request.Context(), song)
+	createdSong, err := h.songService.CreateSong(r.Context(), song)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create song"})
-		return
+		server.RespondWithError(err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusCreated, ToSongResponse(createdSong))
+	response := ToSongResponse(createdSong)
+	server.RespondOK(response, w)
+	return nil
 }
 
 // UpdateSong godoc
@@ -127,32 +157,44 @@ func (h *Handler) CreateSong(c *gin.Context) {
 // @Success 200 {object} SongResponse
 // @Failure 400,404 {object} map[string]string
 // @Router /api/v1/songs/{id} [put]
-func (h *Handler) UpdateSong(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) error {
+	idStr, err := r.PathParam("id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
-		return
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
 	}
 
 	var req SongRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
+	if err := r.DecodeBody(&req); err != nil {
+		server.BadRequest("invalid-request-body", err, w)
+		return nil
 	}
 
 	song, err := ToSongDomain(req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		server.BadRequest("invalid-song-data", domain.ErrInvalidSongData, w)
+		return nil
 	}
 
-	updatedSong, err := h.songService.UpdateSong(c.Request.Context(), id, song)
+	updatedSong, err := h.songService.UpdateSong(r.Context(), id, song)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
-		return
+		if errors.Is(err, domain.ErrSongNotFound) {
+			server.NotFound("song-not-found", err, w)
+			return nil
+		}
+		server.RespondWithError(err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, ToSongResponse(updatedSong))
+	response := ToSongResponse(updatedSong)
+	server.RespondOK(response, w)
+	return nil
 }
 
 // PartialUpdateSong godoc
@@ -166,26 +208,38 @@ func (h *Handler) UpdateSong(c *gin.Context) {
 // @Success 200 {object} SongResponse
 // @Failure 400,404 {object} map[string]string
 // @Router /api/v1/songs/{id} [patch]
-func (h *Handler) PartialUpdateSong(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) PartialUpdateSong(r common.RequestReader, w http.ResponseWriter) error {
+	idStr, err := r.PathParam("id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
-		return
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
 	}
 
 	var updates map[string]interface{}
-	if err := c.ShouldBindJSON(&updates); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
+	if err := r.DecodeBody(&updates); err != nil {
+		server.BadRequest("invalid-request-body", err, w)
+		return nil
 	}
 
-	updatedSong, err := h.songService.PartialUpdateSong(c.Request.Context(), id, updates)
+	updatedSong, err := h.songService.PartialUpdateSong(r.Context(), id, updates)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
-		return
+		if errors.Is(err, domain.ErrSongNotFound) {
+			server.NotFound("song-not-found", err, w)
+			return nil
+		}
+		server.RespondWithError(err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, updatedSong)
+	response := ToSongResponse(updatedSong)
+	server.RespondOK(response, w)
+	return nil
 }
 
 // DeleteSong godoc
@@ -198,19 +252,30 @@ func (h *Handler) PartialUpdateSong(c *gin.Context) {
 // @Success 200 {object} map[string]string
 // @Failure 404,500 {object} map[string]string
 // @Router /api/v1/songs/{id} [delete]
-func (h *Handler) DeleteSong(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) DeleteSong(r common.RequestReader, w http.ResponseWriter) error {
+	idStr, err := r.PathParam("id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
-		return
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
 	}
 
-	if err := h.songService.DeleteSong(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
-		return
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		server.BadRequest("invalid-song-id", domain.ErrInvalidSongID, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Song deleted successfully"})
+	if err := h.songService.DeleteSong(r.Context(), id); err != nil {
+		if errors.Is(err, domain.ErrSongNotFound) {
+			server.NotFound("song-not-found", err, w)
+			return nil
+		}
+		server.RespondWithError(err, w)
+		return nil
+	}
+
+	server.RespondOK("Deleted song", w)
+	return nil
 }
 
 // GetSongVerses godoc
@@ -225,26 +290,46 @@ func (h *Handler) DeleteSong(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/songs/{id}/verses [get]
-func (h *Handler) GetSongVerses(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *Handler) GetSongVerses(r common.RequestReader, w http.ResponseWriter) error {
+	songIDStr, err := r.PathParam("id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid song ID"})
-		return
+		server.BadRequest("invalid-song-id", err, w)
+		return nil
 	}
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	size, _ := strconv.Atoi(c.DefaultQuery("size", "1"))
-
-	verses, total, err := h.songService.GetSongVerses(c.Request.Context(), id, page, size)
+	songID, err := strconv.Atoi(songIDStr)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Song not found"})
-		return
+		server.BadRequest("invalid-song-id", err, w)
+		return nil
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	pageStr := r.DefaultQueryParam("page", "1")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	sizeStr := r.DefaultQueryParam("size", "1")
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size < 1 {
+		size = 1
+	}
+
+	verses, total, err := h.songService.GetSongVerses(r.Context(), songID, page, size)
+	if err != nil {
+		if errors.Is(err, domain.ErrSongNotFound) {
+			server.NotFound("song-not-found", err, w)
+			return nil
+		}
+		server.RespondWithError(err, w)
+		return nil
+	}
+
+	server.RespondOK(map[string]interface{}{
 		"verses": verses,
 		"total":  total,
 		"page":   page,
 		"size":   size,
-	})
+	}, w)
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"songs/internal/app/domain"
+	"songs/internal/app/transport/adapter"
 	"testing"
 	"time"
 
@@ -77,7 +78,7 @@ func setupTestRouter(mockService *MockSongService) *gin.Engine {
 	{
 		api.GET("/songs", handler.GetSongs)
 		api.GET("/songs/:id", handler.GetSong)
-		api.POST("/songs", handler.CreateSong)
+		api.POST("/songs", adapter.ToGinHandler(handler.CreateSong))
 		api.PUT("/songs/:id", handler.UpdateSong)
 		api.PATCH("/songs/:id", handler.PartialUpdateSong)
 		api.DELETE("/songs/:id", handler.DeleteSong)
@@ -129,7 +130,7 @@ func TestHandler_CreateSong(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response SongResponse
 	err := json.Unmarshal(w.Body.Bytes(), &response)
