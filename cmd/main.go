@@ -3,17 +3,16 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"songs/internal/app/api"
-	"songs/internal/app/config"
-	pg "songs/internal/pkg"
-
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	"log"
+	"os"
+	"songs/internal/app/config"
+	"songs/internal/app/repository/pgrepo"
+	"songs/internal/app/service"
+	"songs/internal/app/transport"
+	pg "songs/internal/pkg"
 )
 
 func main() {
@@ -38,11 +37,16 @@ func run() error {
 		}
 	}
 
-	r := api.SetupRouter()
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Initialize repo
+	songRepo := pgrepo.NewSongRepo(pgDB)
+	// Initialize the song service
+	songService := service.NewSongService(songRepo)
 
-	if err := r.Run(cfg.HTTPAddr); err != nil {
-		log.Println("failed to run server: %v", err)
+	// Create and run the server
+	server := transport.NewServer(cfg.HTTPAddr, &songService)
+	if err := server.Run(); err != nil {
+		log.Printf("failed to run server: %v", err)
+		return err
 	}
 
 	return nil
