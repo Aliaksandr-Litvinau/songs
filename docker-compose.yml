@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "8080:8080"
+      - "50051:50051"
     environment:
       DSN: "postgres://user:password@postgres:5432/music_library?sslmode=disable"
       MIGRATIONS_PATH: "file://migrations"
