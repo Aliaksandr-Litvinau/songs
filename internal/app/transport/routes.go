@@ -1,15 +1,23 @@
 package transport
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/swaggo/files"
-	"github.com/swaggo/gin-swagger"
 	_ "songs/docs"
+	"songs/internal/app/middleware"
 	"songs/internal/app/transport/adapter"
+
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func SetupRouter(svc SongService) *gin.Engine {
 	r := gin.Default()
+
+	// Add Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	// Add Prometheus middleware
+	r.Use(middleware.PrometheusMiddleware())
 
 	handler := NewHandler(svc)
 
