@@ -1,18 +1,23 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"log"
 	"os"
+	"os/signal"
 	"songs/internal/app/config"
+	"songs/internal/app/kafka/services/runner"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
 	"songs/internal/app/transport"
 	pg "songs/internal/pkg"
+	"syscall"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
@@ -42,13 +47,36 @@ func run() error {
 	// Initialize the song service
 	songService := service.NewSongService(songRepo)
 
-	// Create and run the server
-	server := transport.NewServer(cfg.HTTPAddr, &songService)
-	if err := server.Run(); err != nil {
-		log.Printf("failed to run server: %v", err)
-		return err
-	}
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	// Start Kafka service
+	stopKafka, err := runner.RunKafkaService(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start kafka service: %w", err)
+	}
+	defer stopKafka()
+
+	// Create HTTP server
+	server := transport.NewServer(cfg.HTTPAddr, &songService)
+
+	// Start HTTP server in a goroutine
+	go func() {
+		if err := server.Run(); err != nil {
+			log.Printf("failed to run server: %v", err)
+			cancel()
+		}
+	}()
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigChan
+	log.Printf("Received signal %v, shutting down...", sig)
+
+	// Trigger graceful shutdown
+	cancel()
 	return nil
 }
 
