@@ -1,29 +1,52 @@
-
 # Songs Library API
 
-This project built using **Gin Gonic** (a Go web framework) and **Gorm** (a Go ORM). The API allows you to manage a library of songs, including adding songs, retrieving song data, and fetching song lyrics with pagination by verses.
+[![Go Version](https://img.shields.io/github/go-mod/go-version/Aliaksandr-Litvinau/songs)](https://go.dev/)
+[![License](https://img.shields.io/github/license/Aliaksandr-Litvinau/songs)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Aliaksandr-Litvinau/songs)](https://goreportcard.com/report/github.com/Aliaksandr-Litvinau/songs)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=Prometheus&logoColor=white)](https://prometheus.io/)
+
+This project built using **Clean Architecture** principles with **Gin Gonic** (a Go web framework). The API allows you to manage a library of songs, including CRUD operations for songs and advanced lyrics management with pagination support.
 
 ## Features
 
-- **Add Songs**: Create a new song in the database.
-- **Get Songs**: Retrieve all songs with options for filtering and pagination.
-- **Get Lyrics by Verses**: Fetch song lyrics with pagination, splitting the song text into verses.
+- **Song Management**:
+  - Create new songs with metadata and lyrics
+  - Update existing songs
+  - Delete songs
+  - Get detailed song information
+- **Advanced Queries**:
+  - Filter songs by various parameters
+  - Pagination support
+  - Search functionality
+- **Lyrics Management**:
+  - Fetch lyrics with verse pagination
+  - Format and structure lyrics
+- **Monitoring**:
+  - Prometheus metrics
+  - Request tracking
+  - Performance monitoring
 
 ## Technologies
 
-- **Go (Golang)**: The core programming language.
-- **Gin Gonic**: Web framework for building APIs.
-- **Gorm**: ORM for working with the PostgreSQL database.
-- **PostgreSQL**: The database used for storing song information.
-- **Docker**: For containerizing the application.
-- **Logrus**: Logging library used for detailed logs.
+- **Go (Golang)**: The core programming language
+- **Gin Gonic**: Web framework for building APIs
+- **PostgreSQL**: Primary database
+- **Docker & Docker Compose**: Containerization and orchestration
+- **Prometheus**: Metrics and monitoring
+- **Swagger**: API documentation
+- **Standard Go Logger**: Simple and efficient logging
+- **Testify**: Testing framework
+- **Golang-migrate**: Database migrations
 
 ## Getting Started
 
 ### Prerequisites
 
-- Docker
-- Go (if running outside Docker)
+- Docker and Docker Compose
+- Go 1.21 or higher (if running outside Docker)
+- PostgreSQL 14 or higher (if running without Docker)
 
 ### Installation
 
@@ -57,14 +80,68 @@ Visit ```/swagger/index.html``` to explore and interact with the API.
 
 4. **Database Migration:**
 
-The project uses Gorm’s `AutoMigrate` feature to automatically create the `songs` table in the PostgreSQL database. The migration will be applied automatically when the application is started.
+The project uses `golang-migrate` for database migrations. All migrations are versioned and stored in the database. This ensures:
+- Consistent database schema across all environments
+- Version control for database changes
+- Safe and repeatable deployments
+- Rollback capability
 
-### 🚨Why Clean Architecture Wasn't Used from the Start
-> **At the start of this project, the priority was rapid development.** Implementing Clean Architecture from day one would have introduced unnecessary complexity and slowed down the initial build. When you’re trying to hit deadlines, especially for a smaller project with no immediate plans for scaling, adding layers of abstraction can be overkill. Clean Architecture requires more planning, design, and development time, which can be counterproductive when the focus is on getting a working product out the door quickly.
+To apply migrations manually (if needed):
+```bash
+make migrate-up
+```
 
-> That being said, as the project grows and its complexity increases, transitioning to Clean Architecture will be a natural progression. This will allow the codebase to handle scaling, new features, and long-term maintainability more effectively.
+To rollback migrations:
+```bash
+make migrate-down
+```
 
-> In summary, while we started with a pragmatic, simpler approach to get results fast, the project is structured in a way that makes it possible to evolve into Clean Architecture when the time comes.
+### Project Architecture
+
+This project follows the Clean Architecture principles, which provides several benefits:
+- Clear separation of concerns
+- Independence of frameworks
+- Testability
+- Maintainability
+- Scalability
+
+The project is structured into the following layers:
+
+#### 🎯 Domain Layer (`internal/app/domain`)
+- Contains business logic and entities
+- Defines interfaces for repositories and use cases
+- Independent of external frameworks and libraries
+
+#### 💼 Use Case Layer (`internal/app/usecase`)
+- Implements application-specific business rules
+- Orchestrates the flow of data between layers
+- Contains the core business logic
+
+#### 🔌 Interface Adapters Layer
+- **Repository** (`internal/app/repository`): Implements data storage interfaces
+- **Transport** (`internal/app/transport`): Handles HTTP requests and responses
+- **Middleware** (`internal/app/middleware`): Contains HTTP middleware components
+
+#### 🔧 Infrastructure Layer
+- Database configurations
+- External services integration
+- Framework-specific code
+
+### Directory Structure
+```
+.
+├── cmd/
+│   └── server/          # Application entry point
+├── internal/
+│   └── app/
+│       ├── domain/      # Business entities and interfaces
+│       ├── usecase/     # Business logic implementation
+│       ├── repository/  # Data access layer
+│       ├── transport/   # HTTP handlers and routes
+│       └── middleware/  # HTTP middleware
+├── pkg/                 # Shared packages
+└── docker/             # Docker configurations
+```
 
 ## License
 
