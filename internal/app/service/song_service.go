@@ -22,8 +22,8 @@ type SongRepository interface {
 }
 
 // NewSongService creates a new instance of SongService
-func NewSongService(repo SongRepository) SongService {
-	return SongService{
+func NewSongService(repo SongRepository) *SongService {
+	return &SongService{
 		repo: repo,
 	}
 }

@@ -1,23 +1,24 @@
-package transport
+package http
 
 import (
 	"context"
 	"fmt"
 	"net/http"
+	"songs/internal/app/transport"
 )
 
 type Server struct {
 	httpServer  *http.Server
-	songService SongService
+	songService transport.SongService
 }
 
-func NewServer(addr string, songService SongService) *Server {
+func NewServer(addr string, songService transport.SongService) *Server {
 	server := &Server{
 		songService: songService,
 	}
 
 	// Initialize router with service
-	router := SetupRouter(songService)
+	router := transport.SetupRouter(songService)
 
 	// Setup http server
 	server.httpServer = &http.Server{

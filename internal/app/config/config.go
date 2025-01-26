@@ -14,6 +14,7 @@ var (
 
 type Config struct {
 	HTTPAddr       string
+	GRPCAddr       string
 	DSN            string
 	MigrationsPath string
 	SwaggerURL     string
@@ -32,6 +33,7 @@ func GetConfig() *Config {
 	once.Do(func() {
 		instance = &Config{
 			HTTPAddr:       getEnv("HTTP_ADDR", ":8080"),
+			GRPCAddr:       getEnv("GRPC_ADDR", ":50051"),
 			DSN:            getEnv("DSN", "postgres://user:password@localhost:5432/music_library?sslmode=disable"),
 			MigrationsPath: getEnv("MIGRATIONS_PATH", "file:///songs/internal/app/migrations"),
 			Kafka: KafkaConfig{

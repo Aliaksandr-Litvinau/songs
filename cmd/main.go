@@ -11,8 +11,10 @@ import (
 	"songs/internal/app/kafka/services/runner"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
-	"songs/internal/app/transport"
+	"songs/internal/app/transport/grpc"
+	"songs/internal/app/transport/http"
 	pg "songs/internal/pkg"
+	"sync"
 	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -58,13 +60,28 @@ func run() error {
 	}
 	defer stopKafka()
 
-	// Create HTTP server
-	server := transport.NewServer(cfg.HTTPAddr, &songService)
+	// Create servers
+	httpServer := http.NewServer(cfg.HTTPAddr, songService)
+	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
 
-	// Start HTTP server in a goroutine
+	// WaitGroup for tracking running servers
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	// Start HTTP server
 	go func() {
-		if err := server.Run(); err != nil {
-			log.Printf("failed to run server: %v", err)
+		defer wg.Done()
+		if err := httpServer.Run(); err != nil {
+			log.Printf("HTTP server error: %v", err)
+			cancel()
+		}
+	}()
+
+	// Start gRPC server
+	go func() {
+		defer wg.Done()
+		if err := grpcServer.Run(); err != nil {
+			log.Printf("gRPC server error: %v", err)
 			cancel()
 		}
 	}()
@@ -77,6 +94,17 @@ func run() error {
 
 	// Trigger graceful shutdown
 	cancel()
+
+	// Graceful shutdown of servers
+	if err := httpServer.Stop(); err != nil {
+		log.Printf("Error stopping HTTP server: %v", err)
+	}
+	grpcServer.Stop()
+
+	// Wait for all servers to stop
+	wg.Wait()
+	log.Println("All servers stopped")
+
 	return nil
 }
 

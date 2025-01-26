@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package song.v1;
+
+option go_package = "songs/internal/app/proto/song/v1;songv1";
+
+service SongService {
+  rpc GetSong(GetSongRequest) returns (GetSongResponse) {}
+  rpc ListSongs(ListSongsRequest) returns (ListSongsResponse) {}
+  rpc CreateSong(CreateSongRequest) returns (CreateSongResponse) {}
+  rpc UpdateSong(UpdateSongRequest) returns (UpdateSongResponse) {}
+  rpc DeleteSong(DeleteSongRequest) returns (DeleteSongResponse) {}
+}
+
+message Song {
+  string id = 1;
+  string group = 2;
+  string name = 3;
+  string release_date = 4;
+  string text = 5;
+  string link = 6;
+}
+
+message GetSongRequest {
+  string id = 1;
+}
+
+message GetSongResponse {
+  Song song = 1;
+}
+
+message ListSongsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string group = 3;
+  string song = 4;
+  string release_date = 5;
+  string text = 6;
+  string link = 7;
+}
+
+message ListSongsResponse {
+  repeated Song songs = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 pages = 4;
+}
+
+message CreateSongRequest {
+  string group = 1;
+  string name = 2;
+  string release_date = 3;
+  string text = 4;
+  string link = 5;
+}
+
+message CreateSongResponse {
+  Song song = 1;
+}
+
+message UpdateSongRequest {
+  string id = 1;
+  string group = 2;
+  string name = 3;
+  string release_date = 4;
+  string text = 5;
+  string link = 6;
+}
+
+message UpdateSongResponse {
+  Song song = 1;
+}
+
+message DeleteSongRequest {
+  string id = 1;
+}
+
+message DeleteSongResponse {
+  bool success = 1;
+}
