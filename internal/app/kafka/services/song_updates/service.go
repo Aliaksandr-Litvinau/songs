@@ -11,6 +11,8 @@ import (
 	"songs/internal/app/domain"
 	"songs/internal/app/kafka"
 	"songs/internal/app/kafka/models"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // SongUpdateService controls the processing of song updates
@@ -19,7 +21,6 @@ type SongUpdateService struct {
 	consumer kafka.Consumer
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
-	errChan  chan error
 	done     chan struct{}
 }
 
@@ -42,14 +43,15 @@ func NewSongUpdateService(cfg *config.KafkaConfig) (*SongUpdateService, error) {
 	handler := &SongUpdateHandler{}
 	consumer, err := kafka.NewConsumer(cfg, handler)
 	if err != nil {
-		producer.Close()
+		if closeErr := producer.Close(); closeErr != nil {
+			return nil, fmt.Errorf("error creating consumer: %w, failed to close producer: %v", err, closeErr)
+		}
 		return nil, fmt.Errorf("error creating consumer: %w", err)
 	}
 
 	return &SongUpdateService{
 		producer: producer,
 		consumer: consumer,
-		errChan:  make(chan error, 1),
 		done:     make(chan struct{}),
 	}, nil
 }
@@ -58,26 +60,19 @@ func (s *SongUpdateService) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 
-	// Run the update handler in a separate goroutine
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
 		if err := s.consumer.Start(ctx); err != nil {
 			log.Printf("Error starting consumer: %v", err)
-			s.errChan <- fmt.Errorf("consumer error: %w", err)
-			cancel()
+			return fmt.Errorf("consumer error: %w", err)
 		}
-	}()
+		return nil
+	})
 
-	// Send test updates every 5 seconds
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	g.Go(func() error {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-
-		failureCount := 0
-		const maxFailures = 3 // Maximum number of consecutive producer failures
 
 		counter := 1
 		for {
@@ -103,37 +98,25 @@ func (s *SongUpdateService) Start(ctx context.Context) error {
 
 				if err := s.producer.SendMessage(ctx, msg); err != nil {
 					log.Printf("Error sending message: %v", err)
-					failureCount++
-					if failureCount >= maxFailures {
-						log.Printf("Too many consecutive failures (%d), stopping service...", failureCount)
-						s.errChan <- fmt.Errorf("too many producer failures: %w", err)
-						cancel()
-						return
-					}
-				} else {
-					failureCount = 0
-					log.Printf("Sent song update: ID=%d, GroupID=%d, Title=%s",
-						msg.ID, msg.GroupID, msg.Title)
-					counter++
+					return fmt.Errorf("producer error: %w", err)
 				}
+
+				log.Printf("Sent song update: ID=%d, GroupID=%d, Title=%s",
+					msg.ID, msg.GroupID, msg.Title)
+				counter++
+
 			case <-ctx.Done():
-				log.Println("Context cancelled, stopping producer...")
-				return
+				return nil
 			}
 		}
-	}()
+	})
 
-	// Wait for the service to stop
 	go func() {
 		defer close(s.done)
-		select {
-		case err := <-s.errChan:
+		if err := g.Wait(); err != nil {
 			log.Printf("Service error occurred: %v", err)
-			cancel()
-		case <-ctx.Done():
-			log.Println("Service context cancelled")
 		}
-		s.Stop() // Automatically stop the service
+		cancel()
 	}()
 
 	return nil
@@ -145,21 +128,8 @@ func (s *SongUpdateService) Stop() {
 		s.cancel()
 	}
 
-	// Wait for all goroutines to complete
-	done := make(chan struct{})
-	go func() {
-		s.wg.Wait()
-		close(done)
-	}()
+	<-s.done
 
-	select {
-	case <-done:
-		log.Println("All goroutines completed successfully")
-	case <-time.After(10 * time.Second):
-		log.Println("Timeout waiting for goroutines to complete")
-	}
-
-	// Closing producer and consumer
 	if err := s.producer.Close(); err != nil {
 		log.Printf("Error closing producer: %v", err)
 	}
@@ -167,6 +137,5 @@ func (s *SongUpdateService) Stop() {
 		log.Printf("Error closing consumer: %v", err)
 	}
 
-	close(s.errChan)
 	log.Println("Kafka service shutdown completed")
 }

@@ -16,7 +16,9 @@ func waitForKafka(address string, timeout time.Duration) error {
 	for {
 		conn, err := net.Dial("tcp", address)
 		if err == nil {
-			conn.Close()
+			if closeErr := conn.Close(); closeErr != nil {
+				return fmt.Errorf("error closing connection: %w", closeErr)
+			}
 			return nil
 		}
 
