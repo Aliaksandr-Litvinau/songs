@@ -28,17 +28,24 @@ const (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+	os.Exit(0)
+}
+
+func run() error {
 	cfg := config.GetConfig()
 
 	// Initialize DB connection
 	db, err := pg.Dial(cfg.DSN)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		return err
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("Failed to get database instance: %v", err)
+		return err
 	}
 
 	// Waiting for Kafka to be ready with timeout
@@ -49,7 +56,7 @@ func main() {
 	for {
 		select {
 		case <-waitKafkaCtx.Done():
-			log.Fatalf("Timeout waiting for Kafka: %v", waitKafkaCtx.Err())
+			return waitKafkaCtx.Err()
 		default:
 			conn, err := net.Dial("tcp", cfg.Kafka.Brokers[0])
 			if err == nil {
@@ -79,7 +86,7 @@ kafkaReady:
 	// Create Kafka service
 	kafkaService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka service: %v", err)
+		return err
 	}
 
 	// Create a context with cancellation
@@ -143,4 +150,5 @@ kafkaReady:
 	}
 
 	log.Println("Graceful shutdown completed")
+	return nil
 }

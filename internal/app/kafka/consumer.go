@@ -8,29 +8,21 @@ import (
 	"sync"
 
 	"songs/internal/app/config"
+	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"github.com/IBM/sarama"
 )
 
-type MessageHandler interface {
-	Handle(ctx context.Context, msg *models.Message) error
-}
-
-type Consumer interface {
-	Start(ctx context.Context) error
-	Close() error
-}
-
 type kafkaConsumer struct {
 	group   sarama.ConsumerGroup
 	topics  []string
-	handler MessageHandler
+	handler interfaces.MessageHandler
 	wg      sync.WaitGroup
 }
 
 type consumerGroupHandler struct {
-	handler MessageHandler
+	handler interfaces.MessageHandler
 	wg      *sync.WaitGroup
 	errChan chan error
 }
@@ -69,11 +61,11 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	}
 }
 
-func NewConsumer(cfg *config.KafkaConfig, handler MessageHandler) (Consumer, error) {
+func NewConsumer(cfg *config.KafkaConfig, handler interfaces.MessageHandler) (interfaces.Consumer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Group.Session.Timeout = cfg.SessionTimeout
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetNewest
-	saramaConfig.Version = sarama.V2_8_1_0 // Используем современную версию протокола
+	saramaConfig.Version = sarama.V2_8_1_0
 
 	group, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupID, saramaConfig)
 	if err != nil {

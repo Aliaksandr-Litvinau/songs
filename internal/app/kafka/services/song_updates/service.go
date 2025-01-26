@@ -10,21 +10,22 @@ import (
 	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	"songs/internal/app/kafka"
+	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"golang.org/x/sync/errgroup"
 )
 
-// SongUpdateService controls the processing of song updates
+// SongUpdateService управляет обработкой обновлений песен
 type SongUpdateService struct {
-	producer kafka.Producer
-	consumer kafka.Consumer
+	producer interfaces.Producer
+	consumer interfaces.Consumer
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	done     chan struct{}
 }
 
-// SongUpdateHandler handles incoming song updates
+// SongUpdateHandler обрабатывает входящие обновления песен
 type SongUpdateHandler struct{}
 
 func (h *SongUpdateHandler) Handle(ctx context.Context, msg *models.Message) error {
@@ -33,7 +34,7 @@ func (h *SongUpdateHandler) Handle(ctx context.Context, msg *models.Message) err
 	return nil
 }
 
-// NewSongUpdateService creates a new SongUpdateService
+// NewSongUpdateService создает новый SongUpdateService
 func NewSongUpdateService(cfg *config.KafkaConfig) (*SongUpdateService, error) {
 	producer, err := kafka.NewProducer(cfg)
 	if err != nil {

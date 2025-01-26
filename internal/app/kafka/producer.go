@@ -5,22 +5,18 @@ import (
 	"encoding/json"
 
 	"songs/internal/app/config"
+	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"github.com/IBM/sarama"
 )
-
-type Producer interface {
-	SendMessage(ctx context.Context, msg *models.Message) error
-	Close() error
-}
 
 type producer struct {
 	syncProducer sarama.SyncProducer
 	topic        string
 }
 
-func NewProducer(cfg *config.KafkaConfig) (Producer, error) {
+func NewProducer(cfg *config.KafkaConfig) (interfaces.Producer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
