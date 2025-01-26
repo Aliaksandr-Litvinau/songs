@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 
+	"songs/internal/app/config"
+	"songs/internal/app/kafka/models"
+
 	"github.com/IBM/sarama"
 )
 
 type Producer interface {
-	SendMessage(ctx context.Context, msg *Message) error
+	SendMessage(ctx context.Context, msg *models.Message) error
 	Close() error
 }
 
@@ -17,13 +20,13 @@ type producer struct {
 	topic        string
 }
 
-func NewProducer(cfg *Config) (Producer, error) {
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.Retry.Max = 5
+func NewProducer(cfg *config.KafkaConfig) (Producer, error) {
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+	saramaConfig.Producer.Retry.Max = 5
 
-	syncProducer, err := sarama.NewSyncProducer(cfg.Brokers, config)
+	syncProducer, err := sarama.NewSyncProducer(cfg.Brokers, saramaConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +37,7 @@ func NewProducer(cfg *Config) (Producer, error) {
 	}, nil
 }
 
-func (p *producer) SendMessage(ctx context.Context, msg *Message) error {
+func (p *producer) SendMessage(ctx context.Context, msg *models.Message) error {
 	value, err := json.Marshal(msg)
 	if err != nil {
 		return err

@@ -7,6 +7,9 @@ services:
       DSN: "postgres://user:password@postgres:5432/music_library?sslmode=disable"
       MIGRATIONS_PATH: "file://migrations"
       KAFKA_BROKERS: "kafka:9092"
+      KAFKA_TOPIC: "songs.updates"
+      KAFKA_GROUP_ID: "songs_consumer_group"
+      KAFKA_SESSION_TIMEOUT: "10"
 #      MUSIC_INFO_API_URL: "http://music-info:8081"
     command: ["./wait-for-it.sh", "postgres:5432", "--timeout=60", "--", "./app"]
     depends_on:

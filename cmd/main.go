@@ -29,7 +29,7 @@ func main() {
 
 func run() error {
 	// read config
-	cfg := config.Read()
+	cfg := config.GetConfig()
 
 	pgDB, err := pg.Dial(cfg.DSN)
 	if err != nil {
@@ -52,7 +52,7 @@ func run() error {
 	defer cancel()
 
 	// Start Kafka service
-	stopKafka, err := runner.RunKafkaService(ctx)
+	stopKafka, err := runner.RunKafkaService(ctx, *cfg)
 	if err != nil {
 		return fmt.Errorf("failed to start kafka service: %w", err)
 	}

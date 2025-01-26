@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"songs/internal/app/config"
 	"songs/internal/app/kafka/services/song_updates"
 	"time"
 )
@@ -29,16 +30,13 @@ func waitForKafka(address string, timeout time.Duration) error {
 }
 
 // RunKafkaService starts the Kafka service and returns a function for graceful shutdown
-func RunKafkaService(ctx context.Context) (func(), error) {
-	if err := waitForKafka("kafka:9092", 60*time.Second); err != nil {
+func RunKafkaService(ctx context.Context, cfg config.Config) (func(), error) {
+	if err := waitForKafka(cfg.Kafka.Brokers[0], 60*time.Second); err != nil {
 		return nil, fmt.Errorf("kafka is not available: %v", err)
 	}
 
 	// Creating song updates service with Kafka
-	updateService, err := song_updates.NewSongUpdateService(
-		[]string{"kafka:9092"},
-		"songs.updates",
-	)
+	updateService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
 	if err != nil {
 		return nil, fmt.Errorf("error creating song updates service: %v", err)
 	}

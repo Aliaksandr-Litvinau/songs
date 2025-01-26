@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	"songs/internal/app/kafka"
+	"songs/internal/app/kafka/models"
 )
 
 // SongUpdateService controls the processing of song updates
@@ -24,19 +26,14 @@ type SongUpdateService struct {
 // SongUpdateHandler handles incoming song updates
 type SongUpdateHandler struct{}
 
-func (h *SongUpdateHandler) Handle(ctx context.Context, msg *kafka.Message) error {
+func (h *SongUpdateHandler) Handle(ctx context.Context, msg *models.Message) error {
 	fmt.Printf("Got song update: ID=%d, GroupID=%d, Title=%s\n",
 		msg.ID, msg.GroupID, msg.Title)
 	return nil
 }
 
 // NewSongUpdateService creates a new SongUpdateService
-func NewSongUpdateService(brokers []string, topic string) (*SongUpdateService, error) {
-	cfg := &kafka.Config{
-		Brokers: brokers,
-		Topic:   topic,
-	}
-
+func NewSongUpdateService(cfg *config.KafkaConfig) (*SongUpdateService, error) {
 	producer, err := kafka.NewProducer(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("error creating producer: %w", err)
@@ -95,7 +92,7 @@ func (s *SongUpdateService) Start(ctx context.Context) error {
 					Link:        fmt.Sprintf("https://example.com/song/%d", counter),
 				}
 
-				msg := &kafka.Message{
+				msg := &models.Message{
 					ID:          song.ID,
 					GroupID:     song.GroupID,
 					Title:       song.Title,
