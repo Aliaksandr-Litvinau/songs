@@ -8,11 +8,15 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"log"
 	"os"
+	"os/signal"
 	"songs/internal/app/config"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
-	"songs/internal/app/transport"
+	"songs/internal/app/transport/grpc"
+	"songs/internal/app/transport/http"
 	pg "songs/internal/pkg"
+	"sync"
+	"syscall"
 )
 
 func main() {
@@ -42,12 +46,44 @@ func run() error {
 	// Initialize the song service
 	songService := service.NewSongService(songRepo)
 
-	// Create and run the server
-	server := transport.NewServer(cfg.HTTPAddr, &songService)
-	if err := server.Run(); err != nil {
-		log.Printf("failed to run server: %v", err)
-		return err
-	}
+	// Create servers
+	httpServer := http.NewServer(cfg.HTTPAddr, songService)
+	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
+
+	// Channel for graceful shutdown
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// WaitGroup for tracking running servers
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	// Start HTTP server
+	go func() {
+		defer wg.Done()
+		if err := httpServer.Run(); err != nil {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Start gRPC server
+	go func() {
+		defer wg.Done()
+		if err := grpcServer.Run(); err != nil {
+			log.Printf("gRPC server error: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-shutdown
+	log.Println("Shutting down servers...")
+
+	// Graceful shutdown
+	//httpServer.Stop()
+	grpcServer.Stop()
+
+	wg.Wait()
+	log.Println("Servers stopped")
 
 	return nil
 }
