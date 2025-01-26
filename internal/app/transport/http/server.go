@@ -3,42 +3,38 @@ package http
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
-	"songs/internal/app/transport"
 )
 
 type Server struct {
-	httpServer  *http.Server
-	songService transport.SongService
+	server *http.Server
+	addr   string
 }
 
-func NewServer(addr string, songService transport.SongService) *Server {
-	server := &Server{
-		songService: songService,
+func NewServer(addr string, handler http.Handler) *Server {
+	return &Server{
+		server: &http.Server{
+			Addr:    addr,
+			Handler: handler,
+		},
+		addr: addr,
 	}
-
-	// Initialize router with service
-	router := transport.SetupRouter(songService)
-
-	// Setup http server
-	server.httpServer = &http.Server{
-		Addr:    addr,
-		Handler: router,
-	}
-
-	return server
 }
 
-func (s *Server) Run() error {
-	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("failed to start server: %w", err)
+func (s *Server) Start(ctx context.Context) error {
+	log.Printf("Starting HTTP server on %s", s.addr)
+	if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 	return nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	if err := s.httpServer.Shutdown(ctx); err != nil {
-		return fmt.Errorf("failed to shutdown server: %w", err)
+	log.Println("Stopping HTTP server...")
+	if err := s.server.Shutdown(ctx); err != nil {
+		return fmt.Errorf("failed to stop HTTP server: %w", err)
 	}
+	log.Println("HTTP server stopped")
 	return nil
 }

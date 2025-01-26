@@ -116,26 +116,37 @@ func (s *SongUpdateService) Start(ctx context.Context) error {
 		if err := g.Wait(); err != nil {
 			log.Printf("Service error occurred: %v", err)
 		}
-		cancel()
 	}()
 
 	return nil
 }
 
-func (s *SongUpdateService) Stop() {
+func (s *SongUpdateService) Shutdown(ctx context.Context) error {
 	log.Println("Starting graceful shutdown of Kafka service...")
+
 	if s.cancel != nil {
 		s.cancel()
 	}
 
-	<-s.done
+	// Wait for all goroutines to complete with a timeout
+	select {
+	case <-s.done:
+	case <-ctx.Done():
+		return fmt.Errorf("kafka service shutdown timeout exceeded")
+	}
 
+	var errs []error
 	if err := s.producer.Close(); err != nil {
-		log.Printf("Error closing producer: %v", err)
+		errs = append(errs, fmt.Errorf("error closing producer: %w", err))
 	}
 	if err := s.consumer.Close(); err != nil {
-		log.Printf("Error closing consumer: %v", err)
+		errs = append(errs, fmt.Errorf("error closing consumer: %w", err))
 	}
 
 	log.Println("Kafka service shutdown completed")
+
+	if len(errs) > 0 {
+		return fmt.Errorf("kafka service shutdown errors: %v", errs)
+	}
+	return nil
 }

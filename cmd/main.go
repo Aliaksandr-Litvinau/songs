@@ -2,131 +2,145 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
+
+	"songs/internal/app/common"
 	"songs/internal/app/config"
-	"songs/internal/app/kafka/services/runner"
+	"songs/internal/app/kafka/services/song_updates"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
+	"songs/internal/app/transport"
 	"songs/internal/app/transport/grpc"
 	"songs/internal/app/transport/http"
 	pg "songs/internal/pkg"
-	"sync"
-	"syscall"
+)
 
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+const (
+	httpShutdownTimeout  = 10 * time.Second
+	grpcShutdownTimeout  = 10 * time.Second
+	kafkaShutdownTimeout = 10 * time.Second
+	// dbShutdownTimeout    = 5 * time.Second
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(0)
-}
-
-func run() error {
-	// read config
 	cfg := config.GetConfig()
 
-	pgDB, err := pg.Dial(cfg.DSN)
+	// Initialize DB connection
+	db, err := pg.Dial(cfg.DSN)
 	if err != nil {
-		return fmt.Errorf("pg.Dial failed: %w", err)
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	if pgDB != nil {
-		if err := runPgMigrations(cfg.MigrationsPath, cfg.DSN); err != nil {
-			return fmt.Errorf("runPgMigrations failed: %w", err)
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("Failed to get database instance: %v", err)
+	}
+
+	// Waiting for Kafka to be ready with timeout
+	waitKafkaCtx, waitKafkaCancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer waitKafkaCancel()
+
+	log.Println("Waiting for Kafka to be ready...")
+	for {
+		select {
+		case <-waitKafkaCtx.Done():
+			log.Fatalf("Timeout waiting for Kafka: %v", waitKafkaCtx.Err())
+		default:
+			conn, err := net.Dial("tcp", cfg.Kafka.Brokers[0])
+			if err == nil {
+				if closeErr := conn.Close(); closeErr != nil {
+					log.Printf("Warning: error closing test connection to Kafka: %v", closeErr)
+				}
+				log.Println("Kafka is ready")
+				goto kafkaReady
+			}
+			log.Printf("Kafka is not ready yet: %v", err)
+			time.Sleep(1 * time.Second)
 		}
 	}
+kafkaReady:
 
-	// Initialize repo
-	songRepo := pgrepo.NewSongRepo(pgDB)
-	// Initialize the song service
-	songService := service.NewSongService(songRepo)
+	// Initialize repo and service
+	repo := pgrepo.NewSongRepo(db)
+	songService := service.NewSongService(repo)
 
-	// Create context with cancellation
+	// Create HTTP server
+	router := transport.SetupRouter(songService)
+	httpServer := http.NewServer(cfg.HTTPAddr, router)
+
+	// Create gRPC server
+	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
+
+	// Create Kafka service
+	kafkaService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
+	if err != nil {
+		log.Fatalf("Failed to create Kafka service: %v", err)
+	}
+
+	// Create a context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start Kafka service
-	stopKafka, err := runner.RunKafkaService(ctx, *cfg)
-	if err != nil {
-		return fmt.Errorf("failed to start kafka service: %w", err)
+	// Run all services
+	services := []struct {
+		name    string
+		service common.Lifecycle
+	}{
+		{"HTTP", httpServer},
+		{"gRPC", grpcServer},
+		{"Kafka", kafkaService},
 	}
-	defer stopKafka()
 
-	// Create servers
-	httpServer := http.NewServer(cfg.HTTPAddr, songService)
-	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
+	for _, svc := range services {
+		go func(name string, service common.Lifecycle) {
+			log.Printf("Starting %s service...", name)
+			if err := service.Start(ctx); err != nil {
+				log.Printf("Error starting %s service: %v", name, err)
+				cancel()
+			}
+		}(svc.name, svc.service)
+	}
 
-	// WaitGroup for tracking running servers
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-
-	// Start HTTP server
-	go func() {
-		defer wg.Done()
-		if err := httpServer.Run(); err != nil {
-			log.Printf("HTTP server error: %v", err)
-			cancel()
-		}
-	}()
-
-	// Start gRPC server
-	go func() {
-		defer wg.Done()
-		if err := grpcServer.Run(); err != nil {
-			log.Printf("gRPC server error: %v", err)
-			cancel()
-		}
-	}()
-
-	// Wait for interrupt signal
+	// Waiting for a signal for a graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-sigChan
-	log.Printf("Received signal %v, shutting down...", sig)
+	<-sigChan
 
-	// Trigger graceful shutdown
+	log.Println("Received shutdown signal. Starting graceful shutdown...")
+
+	// Cancel context to start shutdown process
 	cancel()
 
-	// Graceful shutdown of servers
-	if err := httpServer.Stop(); err != nil {
+	// stop services sequentially in the correct order
+	// 1. HTTP and gRPC first (they accept incoming requests)
+	httpCtx, httpCancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer httpCancel()
+	if err := httpServer.Shutdown(httpCtx); err != nil {
 		log.Printf("Error stopping HTTP server: %v", err)
 	}
-	grpcServer.Stop()
 
-	// Wait for all servers to stop
-	wg.Wait()
-	log.Println("All servers stopped")
-
-	return nil
-}
-
-func runPgMigrations(path, dsn string) error {
-	if path == "" {
-		return errors.New("no migrations path provided")
-	}
-	if dsn == "" {
-		return errors.New("no DSN provided")
+	grpcCtx, grpcCancel := context.WithTimeout(context.Background(), grpcShutdownTimeout)
+	defer grpcCancel()
+	if err := grpcServer.Shutdown(grpcCtx); err != nil {
+		log.Printf("Error stopping gRPC server: %v", err)
 	}
 
-	log.Println("Initializing migrations")
-	m, err := migrate.New(path, dsn)
-	if err != nil {
-		return err
+	// 2. Then Kafka service
+	kafkaCtx, kafkaCancel := context.WithTimeout(context.Background(), kafkaShutdownTimeout)
+	defer kafkaCancel()
+	if err := kafkaService.Shutdown(kafkaCtx); err != nil {
+		log.Printf("Error stopping Kafka service: %v", err)
 	}
 
-	log.Println("Running migrations")
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
+	// 3. At the end, close the connection to the database
+	if err := sqlDB.Close(); err != nil {
+		log.Printf("Error closing database connection: %v", err)
 	}
 
-	log.Println("Migrations completed successfully")
-	return nil
+	log.Println("Graceful shutdown completed")
 }

@@ -3,11 +3,6 @@ package grpc
 import (
 	"context"
 	"fmt"
-	googlegrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
-	_ "google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"songs/internal/app/domain"
@@ -15,12 +10,20 @@ import (
 	"songs/internal/app/service"
 	"strconv"
 	"time"
+
+	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
+	_ "google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 type Server struct {
 	pb.UnimplementedSongServiceServer
 	songService *service.SongService
 	addr        string
+	server      *googlegrpc.Server
+	listener    net.Listener
 }
 
 func NewServer(addr string, songService *service.SongService) *Server {
@@ -30,27 +33,34 @@ func NewServer(addr string, songService *service.SongService) *Server {
 	}
 }
 
-func (s *Server) Run() error {
-	listener, err := net.Listen("tcp", s.addr)
+func (s *Server) Start(ctx context.Context) error {
+	var err error
+	s.listener, err = net.Listen("tcp", s.addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen on %s: %v", s.addr, err)
+		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}
 
-	grpcServer := googlegrpc.NewServer()
-	pb.RegisterSongServiceServer(grpcServer, s)
-
-	reflection.Register(grpcServer)
+	s.server = googlegrpc.NewServer()
+	pb.RegisterSongServiceServer(s.server, s)
+	reflection.Register(s.server)
 
 	log.Printf("Starting gRPC server on %s", s.addr)
-	if err := grpcServer.Serve(listener); err != nil {
-		return fmt.Errorf("failed to serve: %v", err)
-	}
+	go func() {
+		if err := s.server.Serve(s.listener); err != nil {
+			log.Printf("Failed to serve gRPC: %v", err)
+		}
+	}()
 
 	return nil
 }
 
-func (s *Server) Stop() {
-	//pass TODO: add method
+func (s *Server) Shutdown(ctx context.Context) error {
+	log.Println("Stopping gRPC server...")
+	if s.server != nil {
+		s.server.GracefulStop()
+		log.Println("gRPC server stopped")
+	}
+	return nil
 }
 
 func (s *Server) GetSong(ctx context.Context, req *pb.GetSongRequest) (*pb.GetSongResponse, error) {
