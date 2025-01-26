@@ -74,6 +74,8 @@ This project uses Docker for containerization. The `docker-compose.yml` file pro
 docker-compose up --build
 ```
 
+![Run project](images/make-run.png)
+
 > After the containers are built and running, the API and Swagger documentation will be accessible.
 Swagger Documentation:
 Visit ```/swagger/index.html``` to explore and interact with the API.
