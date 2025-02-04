@@ -6,7 +6,7 @@ import (
 )
 
 type Song struct {
-	ID          int       `gorm:"primaryKey" json:"id,omitempty"`
+	ID          int       `gorm:"primaryKey;autoIncrement" json:"id,omitempty"`
 	GroupID     int       `gorm:"not null" json:"group_id"`
 	Title       string    `gorm:"not null" json:"title"`
 	ReleaseDate time.Time `gorm:"not null" json:"release_date"`

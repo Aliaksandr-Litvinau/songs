@@ -5,6 +5,7 @@ import (
 	"errors"
 	"songs/internal/app/domain"
 	"songs/internal/app/repository/models"
+	pg "songs/internal/pkg"
 	"strings"
 
 	"gorm.io/gorm"
@@ -12,11 +13,11 @@ import (
 
 // SongRepo implements repository pattern for songs
 type SongRepo struct {
-	db *gorm.DB
+	db *pg.DB
 }
 
 // NewSongRepo creates a new song repository
-func NewSongRepo(db *gorm.DB) *SongRepo {
+func NewSongRepo(db *pg.DB) *SongRepo {
 	return &SongRepo{
 		db: db,
 	}
