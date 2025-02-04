@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -40,12 +41,7 @@ func run() error {
 	// Initialize DB connection
 	db, err := pg.Dial(cfg.DSN)
 	if err != nil {
-		return err
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return err
+		return fmt.Errorf("pg.Dial failed: %w", err)
 	}
 
 	// Waiting for Kafka to be ready with timeout
@@ -86,7 +82,7 @@ kafkaReady:
 	// Create Kafka service
 	kafkaService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
 	if err != nil {
-		return err
+		return fmt.Errorf("pg.Dial failed: %w", err)
 	}
 
 	// Create a context with cancellation
@@ -128,25 +124,20 @@ kafkaReady:
 	httpCtx, httpCancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
 	defer httpCancel()
 	if err := httpServer.Shutdown(httpCtx); err != nil {
-		log.Printf("Error stopping HTTP server: %v", err)
+		return fmt.Errorf("error stopping HTTP server: %w", err)
 	}
 
 	grpcCtx, grpcCancel := context.WithTimeout(context.Background(), grpcShutdownTimeout)
 	defer grpcCancel()
 	if err := grpcServer.Shutdown(grpcCtx); err != nil {
-		log.Printf("Error stopping gRPC server: %v", err)
+		return fmt.Errorf("error stopping gRPC server: %w", err)
 	}
 
 	// 2. Then Kafka service
 	kafkaCtx, kafkaCancel := context.WithTimeout(context.Background(), kafkaShutdownTimeout)
 	defer kafkaCancel()
 	if err := kafkaService.Shutdown(kafkaCtx); err != nil {
-		log.Printf("Error stopping Kafka service: %v", err)
-	}
-
-	// 3. At the end, close the connection to the database
-	if err := sqlDB.Close(); err != nil {
-		log.Printf("Error closing database connection: %v", err)
+		return fmt.Errorf("error stopping Kafka service: %w", err)
 	}
 
 	log.Println("Graceful shutdown completed")

@@ -28,7 +28,7 @@ type SongUpdateService struct {
 // SongUpdateHandler обрабатывает входящие обновления песен
 type SongUpdateHandler struct{}
 
-func (h *SongUpdateHandler) Handle(ctx context.Context, msg *models.Message) error {
+func (h *SongUpdateHandler) Handle(_ context.Context, msg *models.Message) error {
 	fmt.Printf("Got song update: ID=%d, GroupID=%d, Title=%s\n",
 		msg.ID, msg.GroupID, msg.Title)
 	return nil
