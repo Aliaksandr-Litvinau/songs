@@ -36,7 +36,10 @@ func main() {
 }
 
 func run() error {
-	cfg := config.GetConfig()
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return fmt.Errorf("config.GetConfig failed: %w", err)
+	}
 
 	// Initialize DB connection
 	db, err := pg.Dial(cfg.DSN)

@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,9 +23,9 @@ func NewServer(addr string, handler http.Handler) *Server {
 	}
 }
 
-func (s *Server) Start(ctx context.Context) error {
+func (s *Server) Start(_ context.Context) error {
 	log.Printf("Starting HTTP server on %s", s.addr)
-	if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
+	if err := s.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 	return nil
