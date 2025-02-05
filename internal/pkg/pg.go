@@ -17,6 +17,15 @@ type DB struct {
 	*gorm.DB
 }
 
+// Close closes the database connection
+func (db *DB) Close() error {
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get sql.DB: %w", err)
+	}
+	return sqlDB.Close()
+}
+
 // Dial creates and configures new database connection to postgres
 // It handles connection establishment, configuration and verification
 // Returns custom DB type that wraps gorm.DB

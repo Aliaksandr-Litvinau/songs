@@ -47,6 +47,14 @@ func run() error {
 		return fmt.Errorf("pg.Dial failed: %w", err)
 	}
 
+	// Access the underlying sql.DB instance and call Close
+	// https://forum.golangbridge.org/t/cant-close-db-connection-with-db-close/34657/2
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database connection: %v", err)
+		}
+	}()
+
 	// Waiting for Kafka to be ready with timeout
 	waitKafkaCtx, waitKafkaCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer waitKafkaCancel()
@@ -85,7 +93,7 @@ kafkaReady:
 	// Create Kafka service
 	kafkaService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
 	if err != nil {
-		return fmt.Errorf("pg.Dial failed: %w", err)
+		return fmt.Errorf("failed to create new song Kafka service: %w", err)
 	}
 
 	// Create a context with cancellation
