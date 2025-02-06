@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	"songs/internal/app/transport/adapter"
 	"testing"
@@ -41,8 +42,8 @@ func (m *MockSongService) DeleteSong(ctx context.Context, id int) error {
 	return args.Error(0)
 }
 
-func (m *MockSongService) UpdateSong(ctx context.Context, id int, song *domain.Song) (*domain.Song, error) {
-	args := m.Called(ctx, id, song)
+func (m *MockSongService) UpdateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+	args := m.Called(ctx, song)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -76,13 +77,13 @@ func setupTestRouter(mockService *MockSongService) *gin.Engine {
 	// Register routes directly instead of using RegisterRoutes
 	api := router.Group("/api/v1")
 	{
-		api.GET("/songs", handler.GetSongs)
-		api.GET("/songs/:id", handler.GetSong)
+		api.GET("/songs", adapter.ToGinHandler(handler.GetSongs))
+		api.GET("/songs/:id", adapter.ToGinHandler(handler.GetSong))
 		api.POST("/songs", adapter.ToGinHandler(handler.CreateSong))
-		api.PUT("/songs/:id", handler.UpdateSong)
-		api.PATCH("/songs/:id", handler.PartialUpdateSong)
-		api.DELETE("/songs/:id", handler.DeleteSong)
-		api.GET("/songs/:id/verses", handler.GetSongVerses)
+		api.PUT("/songs/:id", adapter.ToGinHandler(handler.UpdateSong))
+		api.PATCH("/songs/:id", adapter.ToGinHandler(handler.PartialUpdateSong))
+		api.DELETE("/songs/:id", adapter.ToGinHandler(handler.DeleteSong))
+		api.GET("/songs/:id/verses", adapter.ToGinHandler(handler.GetSongVerses))
 	}
 
 	return router
@@ -96,7 +97,7 @@ func TestHandler_CreateSong(t *testing.T) {
 	songRequest := SongRequest{
 		GroupID:     1,
 		Title:       "Test Song",
-		ReleaseDate: time.Now().Format(time.RFC3339),
+		ReleaseDate: time.Now().Format(config.DateFormat),
 		Text:        "Test lyrics",
 		Link:        "https://example.com",
 	}
@@ -108,7 +109,7 @@ func TestHandler_CreateSong(t *testing.T) {
 		Text:    songRequest.Text,
 		Link:    songRequest.Link,
 	}
-	releaseDate, _ := time.Parse(time.RFC3339, songRequest.ReleaseDate)
+	releaseDate, _ := time.Parse(config.DateFormat, songRequest.ReleaseDate)
 	expectedSong.ReleaseDate = releaseDate
 
 	mockService.On("CreateSong", mock.Anything, mock.MatchedBy(func(s *domain.Song) bool {
@@ -140,7 +141,7 @@ func TestHandler_CreateSong(t *testing.T) {
 	assert.Equal(t, expectedSong.GroupID, response.GroupID)
 	assert.Equal(t, expectedSong.Text, response.Text)
 	assert.Equal(t, expectedSong.Link, response.Link)
-	assert.Equal(t, expectedSong.ReleaseDate.Format(time.RFC3339), response.ReleaseDate)
+	assert.Equal(t, expectedSong.ReleaseDate.Format(config.DateFormat), response.ReleaseDate)
 
 	mockService.AssertExpectations(t)
 }

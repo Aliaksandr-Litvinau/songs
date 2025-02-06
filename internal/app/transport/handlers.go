@@ -98,8 +98,14 @@ func (h *Handler) GetSongs(r common.RequestReader, w http.ResponseWriter) error 
 		return nil
 	}
 
+	// Mapping the domain models to API responses
+	responses := make([]SongResponse, len(songs))
+	for i, song := range songs {
+		responses[i] = ToSongResponse(song)
+	}
+
 	server.RespondOK(map[string]interface{}{
-		"songs": songs,
+		"songs": responses,
 		"total": total,
 		"page":  page,
 		"pages": (int(total) + pageSize - 1) / pageSize,

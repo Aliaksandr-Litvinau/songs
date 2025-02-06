@@ -7,6 +7,12 @@ import (
 	"time"
 )
 
+const (
+	// DateFormat defines layout for parsing/formatting dates
+	// Using Go's reference date (2006-01-02) to specify YYYY-MM-DD format
+	DateFormat = "2006-01-02"
+)
+
 type Config struct {
 	HTTPAddr       string
 	GRPCAddr       string

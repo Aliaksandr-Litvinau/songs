@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	pb "songs/internal/app/proto"
 	"songs/internal/app/service"
@@ -83,7 +84,7 @@ func (s *Server) GetSong(ctx context.Context, req *pb.GetSongRequest) (*pb.GetSo
 			Id:          strconv.Itoa(song.ID),
 			Group:       strconv.Itoa(song.GroupID),
 			Name:        song.Title,
-			ReleaseDate: song.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: song.ReleaseDate.Format(config.DateFormat),
 			Text:        song.Text,
 			Link:        song.Link,
 		},
@@ -126,7 +127,7 @@ func (s *Server) ListSongs(ctx context.Context, req *pb.ListSongsRequest) (*pb.L
 			Id:          strconv.Itoa(song.ID),
 			Group:       strconv.Itoa(song.GroupID),
 			Name:        song.Title,
-			ReleaseDate: song.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: song.ReleaseDate.Format(config.DateFormat),
 			Text:        song.Text,
 			Link:        song.Link,
 		})
@@ -149,7 +150,7 @@ func (s *Server) CreateSong(ctx context.Context, req *pb.CreateSongRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "invalid group ID format")
 	}
 
-	releaseDate, err := time.Parse("2006-01-02", req.ReleaseDate)
+	releaseDate, err := time.Parse(config.DateFormat, req.ReleaseDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid release date format")
 	}
@@ -172,7 +173,7 @@ func (s *Server) CreateSong(ctx context.Context, req *pb.CreateSongRequest) (*pb
 			Id:          strconv.Itoa(createdSong.ID),
 			Group:       strconv.Itoa(createdSong.GroupID),
 			Name:        createdSong.Title,
-			ReleaseDate: createdSong.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: createdSong.ReleaseDate.Format(config.DateFormat),
 			Text:        createdSong.Text,
 			Link:        createdSong.Link,
 		},
@@ -190,7 +191,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "invalid group ID format")
 	}
 
-	releaseDate, err := time.Parse("2006-01-02", req.ReleaseDate)
+	releaseDate, err := time.Parse(config.DateFormat, req.ReleaseDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid release date format")
 	}
@@ -214,7 +215,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 			Id:          strconv.Itoa(updatedSong.ID),
 			Group:       strconv.Itoa(updatedSong.GroupID),
 			Name:        updatedSong.Title,
-			ReleaseDate: updatedSong.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: updatedSong.ReleaseDate.Format(config.DateFormat),
 			Text:        updatedSong.Text,
 			Link:        updatedSong.Link,
 		},
