@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"songs/internal/app/config"
-	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"github.com/IBM/sarama"
@@ -16,7 +15,7 @@ type producer struct {
 	topic        string
 }
 
-func NewProducer(cfg *config.KafkaConfig) (interfaces.Producer, error) {
+func NewProducer(cfg *config.KafkaConfig) (Producer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
@@ -33,7 +32,7 @@ func NewProducer(cfg *config.KafkaConfig) (interfaces.Producer, error) {
 	}, nil
 }
 
-func (p *producer) SendMessage(ctx context.Context, msg *models.Message) error {
+func (p *producer) SendMessage(_ context.Context, msg *models.Message) error {
 	value, err := json.Marshal(msg)
 	if err != nil {
 		return err

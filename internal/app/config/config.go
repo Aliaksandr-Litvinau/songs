@@ -33,10 +33,10 @@ func GetConfig() (Config, error) {
 	return Config{
 		HTTPAddr:       getEnv("HTTP_ADDR", ":8080"),
 		GRPCAddr:       getEnv("GRPC_ADDR", ":50051"),
-		DSN:            getEnv("DSN", "postgres://user:password@postgres:5432/music_library?sslmode=disable"),
+		DSN:            getEnv("DSN", "postgres://user:password@localhost:5432/music_library?sslmode=disable"),
 		MigrationsPath: getEnv("MIGRATIONS_PATH", "file:///songs/internal/app/migrations"),
 		Kafka: KafkaConfig{
-			Brokers:        []string{getEnv("KAFKA_BROKERS", "kafka:9092")},
+			Brokers:        []string{getEnv("KAFKA_BROKERS", "localhost:29092")},
 			Topic:          getEnv("KAFKA_TOPIC", "songs.updates"),
 			GroupID:        getEnv("KAFKA_GROUP_ID", "songs_consumer_group"),
 			SessionTimeout: timeout,

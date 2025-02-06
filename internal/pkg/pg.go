@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"gorm.io/driver/postgres"
@@ -11,25 +12,72 @@ import (
 	"time"
 )
 
-// DB is a wrapper around gorm.DB that provides additional functionality
-// and better control over the database connection
-type DB struct {
-	*gorm.DB
+// PostgresDB is a wrapper around gorm.DB that provides additional functionality
+// and better control over the database connection.
+// Instead of using embedding, we explicitly define methods used in repositories,
+// which gives us several advantages:
+// 1. Full control over the public API of our type
+// 2. Ability to add additional functionality (logging, metrics, tracing)
+// 3. Flexibility to modify method behavior when needed
+// 4. Cleaner and more understandable code without name conflicts
+// 5. Looser coupling with the specific gorm implementation
+//
+// In the future, if we need to add a new method or change existing behavior,
+// we can do it in one place without affecting client code.
+// For example, we can easily add logging or tracing:
+//
+//	func (db *PostgresDB) WithContext(ctx context.Context) *gorm.DB {
+//	    span, ctx := tracer.StartSpan(ctx, "db.query")
+//	    defer span.End()
+//	    return db.gorm.WithContext(ctx)
+//	}
+type PostgresDB struct {
+	gorm *gorm.DB
 }
 
 // Close closes the database connection
-func (db *DB) Close() error {
-	sqlDB, err := db.DB.DB()
+func (db *PostgresDB) Close() error {
+	sqlDB, err := db.gorm.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get sql.DB: %w", err)
 	}
 	return sqlDB.Close()
 }
 
+// WithContext returns gorm DB with context
+func (db *PostgresDB) WithContext(ctx context.Context) *gorm.DB {
+	return db.gorm.WithContext(ctx)
+}
+
+// Create inserts value into database
+func (db *PostgresDB) Create(value interface{}) *gorm.DB {
+	return db.gorm.Create(value)
+}
+
+// First finds first record that match given conditions
+func (db *PostgresDB) First(dest interface{}, conds ...interface{}) *gorm.DB {
+	return db.gorm.First(dest, conds...)
+}
+
+// Model specify the model you would like to run db operations
+func (db *PostgresDB) Model(value interface{}) *gorm.DB {
+	return db.gorm.Model(value)
+}
+
+// Save update value in database, if the value doesn't have primary key, will insert it
+func (db *PostgresDB) Save(value interface{}) *gorm.DB {
+	return db.gorm.Save(value)
+}
+
+// Delete delete value match given conditions
+func (db *PostgresDB) Delete(value interface{}, conds ...interface{}) *gorm.DB {
+	return db.gorm.Delete(value, conds...)
+}
+
 // Dial creates and configures new database connection to postgres
 // It handles connection establishment, configuration and verification
 // Returns custom DB type that wraps gorm.DB
-func Dial(dsn string) (*DB, error) {
+func Dial(dsn string) (*PostgresDB, error) {
 	// Validate input
 	if dsn == "" {
 		return nil, errors.New("no postgres DSN provided")
@@ -73,5 +121,5 @@ func Dial(dsn string) (*DB, error) {
 		return nil, fmt.Errorf("database ping failed: %w", err)
 	}
 
-	return &DB{db}, nil
+	return &PostgresDB{db}, nil
 }

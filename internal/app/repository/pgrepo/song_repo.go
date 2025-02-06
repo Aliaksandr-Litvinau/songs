@@ -13,18 +13,18 @@ import (
 
 // SongRepo implements repository pattern for songs
 type SongRepo struct {
-	db *pg.DB
+	db *pg.PostgresDB
 }
 
 // NewSongRepo creates a new song repository
-func NewSongRepo(db *pg.DB) *SongRepo {
+func NewSongRepo(db *pg.PostgresDB) *SongRepo {
 	return &SongRepo{
 		db: db,
 	}
 }
 
 // GetSong retrieves a song by ID
-func (r SongRepo) GetSong(ctx context.Context, id int) (*domain.Song, error) {
+func (r *SongRepo) GetSong(ctx context.Context, id int) (*domain.Song, error) {
 	if id <= 0 {
 		return nil, domain.ErrInvalidID
 	}
@@ -43,7 +43,7 @@ func (r SongRepo) GetSong(ctx context.Context, id int) (*domain.Song, error) {
 }
 
 // GetSongs retrieves songs with filtering and pagination
-func (r SongRepo) GetSongs(ctx context.Context, filter map[string]string, page, pageSize int) ([]*domain.Song, int64, error) {
+func (r *SongRepo) GetSongs(ctx context.Context, filter map[string]string, page, pageSize int) ([]*domain.Song, int64, error) {
 	if page <= 0 || pageSize <= 0 {
 		return nil, 0, domain.ErrInvalidData
 	}
@@ -82,7 +82,7 @@ func (r SongRepo) GetSongs(ctx context.Context, filter map[string]string, page, 
 }
 
 // CreateSong creates a new song
-func (r SongRepo) CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+func (r *SongRepo) CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
 	if err := validateSong(*song); err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (r *SongRepo) PartialUpdateSong(ctx context.Context, id int, updates map[st
 }
 
 // DeleteSong deletes a song by ID
-func (r SongRepo) DeleteSong(ctx context.Context, id int) error {
+func (r *SongRepo) DeleteSong(ctx context.Context, id int) error {
 	if id <= 0 {
 		return domain.ErrInvalidID
 	}
@@ -172,7 +172,7 @@ func (r SongRepo) DeleteSong(ctx context.Context, id int) error {
 }
 
 // GetSongVerses retrieves verses of a song with pagination
-func (r SongRepo) GetSongVerses(ctx context.Context, id int, page, size int) ([]string, int, error) {
+func (r *SongRepo) GetSongVerses(ctx context.Context, id int, page, size int) ([]string, int, error) {
 	if id <= 0 {
 		return nil, 0, domain.ErrInvalidID
 	}

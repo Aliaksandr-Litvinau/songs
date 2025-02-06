@@ -10,7 +10,6 @@ import (
 	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	"songs/internal/app/kafka"
-	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"golang.org/x/sync/errgroup"
@@ -18,8 +17,8 @@ import (
 
 // SongUpdateService управляет обработкой обновлений песен
 type SongUpdateService struct {
-	producer interfaces.Producer
-	consumer interfaces.Consumer
+	producer kafka.Producer
+	consumer kafka.Consumer
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 	done     chan struct{}

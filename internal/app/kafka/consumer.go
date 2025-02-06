@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"songs/internal/app/config"
-	"songs/internal/app/kafka/interfaces"
 	"songs/internal/app/kafka/models"
 
 	"github.com/IBM/sarama"
@@ -17,12 +16,12 @@ import (
 type kafkaConsumer struct {
 	group   sarama.ConsumerGroup
 	topics  []string
-	handler interfaces.MessageHandler
+	handler MessageHandler
 	wg      sync.WaitGroup
 }
 
 type consumerGroupHandler struct {
-	handler interfaces.MessageHandler
+	handler MessageHandler
 	wg      *sync.WaitGroup
 	errChan chan error
 }
@@ -61,7 +60,7 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	}
 }
 
-func NewConsumer(cfg *config.KafkaConfig, handler interfaces.MessageHandler) (interfaces.Consumer, error) {
+func NewConsumer(cfg *config.KafkaConfig, handler MessageHandler) (Consumer, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Group.Session.Timeout = cfg.SessionTimeout
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetNewest
