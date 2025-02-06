@@ -6,6 +6,7 @@ import (
 )
 
 type SongRequest struct {
+	ID          int    `json:"id"`
 	GroupID     int    `json:"group_id"`
 	Title       string `json:"title"`
 	ReleaseDate string `json:"release_date"`

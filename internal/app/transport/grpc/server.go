@@ -33,7 +33,7 @@ func NewServer(addr string, songService *service.SongService) *Server {
 	}
 }
 
-func (s *Server) Start(ctx context.Context) error {
+func (s *Server) Start(_ context.Context) error {
 	var err error
 	s.listener, err = net.Listen("tcp", s.addr)
 	if err != nil {
@@ -54,7 +54,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *Server) Shutdown(_ context.Context) error {
 	log.Println("Stopping gRPC server...")
 	if s.server != nil {
 		s.server.GracefulStop()
@@ -204,7 +204,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 		Link:        req.Link,
 	}
 
-	updatedSong, err := s.songService.UpdateSong(ctx, songID, song)
+	updatedSong, err := s.songService.UpdateSong(ctx, song)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update song")
 	}

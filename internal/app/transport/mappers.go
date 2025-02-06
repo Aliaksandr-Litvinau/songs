@@ -12,6 +12,7 @@ func ToSongDomain(req SongRequest) (*domain.Song, error) {
 	}
 
 	return &domain.Song{
+		ID:          req.ID,
 		GroupID:     req.GroupID,
 		Title:       req.Title,
 		ReleaseDate: releaseDate,

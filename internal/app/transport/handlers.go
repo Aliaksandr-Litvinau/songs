@@ -158,18 +158,6 @@ func (h *Handler) CreateSong(r common.RequestReader, w http.ResponseWriter) erro
 // @Failure 400,404 {object} map[string]string
 // @Router /api/v1/songs/{id} [put]
 func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) error {
-	idStr, err := r.PathParam("id")
-	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
-		return nil
-	}
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		server.BadRequest("invalid-song-id", domain.ErrInvalidID, w)
-		return nil
-	}
-
 	var req SongRequest
 	if err := r.DecodeBody(&req); err != nil {
 		server.BadRequest("invalid-request-body", err, w)
@@ -182,7 +170,7 @@ func (h *Handler) UpdateSong(r common.RequestReader, w http.ResponseWriter) erro
 		return nil
 	}
 
-	updatedSong, err := h.songService.UpdateSong(r.Context(), id, song)
+	updatedSong, err := h.songService.UpdateSong(r.Context(), song)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			server.NotFound("song-not-found", err, w)

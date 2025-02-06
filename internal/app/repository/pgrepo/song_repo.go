@@ -83,6 +83,10 @@ func (r *SongRepo) GetSongs(ctx context.Context, filter map[string]string, page,
 
 // CreateSong creates a new song
 func (r *SongRepo) CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+	if song == nil {
+		return nil, domain.ErrInvalidData
+	}
+
 	if err := validateSong(*song); err != nil {
 		return nil, err
 	}
@@ -101,8 +105,12 @@ func (r *SongRepo) CreateSong(ctx context.Context, song *domain.Song) (*domain.S
 }
 
 // UpdateSong updates an existing song
-func (r *SongRepo) UpdateSong(ctx context.Context, id int, song *domain.Song) (*domain.Song, error) {
-	if id <= 0 {
+func (r *SongRepo) UpdateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+	if song == nil {
+		return nil, domain.ErrInvalidData
+	}
+
+	if song.ID <= 0 {
 		return nil, domain.ErrInvalidID
 	}
 
@@ -111,7 +119,6 @@ func (r *SongRepo) UpdateSong(ctx context.Context, id int, song *domain.Song) (*
 	}
 
 	dbSong := models.ToDBModel(*song)
-	dbSong.ID = id
 
 	result := r.db.WithContext(ctx).Save(&dbSong)
 	if result.Error != nil {

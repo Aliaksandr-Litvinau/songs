@@ -17,7 +17,7 @@ type SongService interface {
 	CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error)
 
 	// UpdateSong updates an existing song
-	UpdateSong(ctx context.Context, id int, song *domain.Song) (*domain.Song, error)
+	UpdateSong(ctx context.Context, song *domain.Song) (*domain.Song, error)
 
 	// PartialUpdateSong updates specific fields of an existing song
 	PartialUpdateSong(ctx context.Context, id int, updates map[string]interface{}) (*domain.Song, error)
