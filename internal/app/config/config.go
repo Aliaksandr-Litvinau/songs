@@ -20,6 +20,7 @@ type Config struct {
 	MigrationsPath string
 	SwaggerURL     string
 	Kafka          KafkaConfig
+	MusicAPIURL    string
 }
 
 type KafkaConfig struct {
@@ -47,6 +48,7 @@ func GetConfig() (Config, error) {
 			GroupID:        getEnv("KAFKA_GROUP_ID", "songs_consumer_group"),
 			SessionTimeout: timeout,
 		},
+		MusicAPIURL: getEnv("MUSIC_API_URL", "http://localhost:8081"), // TODO: add real API
 	}, nil
 }
 

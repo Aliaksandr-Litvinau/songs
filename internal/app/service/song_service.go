@@ -2,12 +2,19 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"songs/internal/app/domain"
 )
 
 // SongService implements the SongService interface
 type SongService struct {
-	repo SongRepository
+	enricher SongEnricher
+	repo     SongRepository
+}
+
+// SongEnricher defines the interface for song enricher operations
+type SongEnricher interface {
+	EnrichSong(ctx context.Context, song *domain.Song) error
 }
 
 // SongRepository defines the interface for song repository operations
@@ -22,9 +29,10 @@ type SongRepository interface {
 }
 
 // NewSongService creates a new instance of SongService
-func NewSongService(repo SongRepository) *SongService {
+func NewSongService(repo SongRepository, enricher SongEnricher) *SongService {
 	return &SongService{
-		repo: repo,
+		repo:     repo,
+		enricher: enricher,
 	}
 }
 
@@ -40,6 +48,9 @@ func (s *SongService) GetSongs(ctx context.Context, filter map[string]string, pa
 
 // CreateSong creates a new song
 func (s *SongService) CreateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+	if err := s.enricher.EnrichSong(ctx, song); err != nil {
+		return nil, fmt.Errorf("enrich song: %w", err)
+	}
 	return s.repo.CreateSong(ctx, song)
 }
 

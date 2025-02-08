@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
+	"songs/internal/app/infrastructure/musicapi"
 	"syscall"
 	"time"
 
 	"songs/internal/app/common"
 	"songs/internal/app/config"
-	"songs/internal/app/kafka/services/song_updates"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
 	"songs/internal/app/transport"
@@ -22,9 +21,8 @@ import (
 )
 
 const (
-	httpShutdownTimeout  = 10 * time.Second
-	grpcShutdownTimeout  = 10 * time.Second
-	kafkaShutdownTimeout = 10 * time.Second
+	httpShutdownTimeout = 10 * time.Second
+	grpcShutdownTimeout = 10 * time.Second
 	// dbShutdownTimeout    = 5 * time.Second
 )
 
@@ -55,33 +53,15 @@ func run() error {
 		}
 	}()
 
-	// Waiting for Kafka to be ready with timeout
-	waitKafkaCtx, waitKafkaCancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer waitKafkaCancel()
+	// Create client for external Music API
+	apiClient := musicapi.NewClient(cfg.MusicAPIURL)
 
-	log.Println("Waiting for Kafka to be ready...")
-	for {
-		select {
-		case <-waitKafkaCtx.Done():
-			return waitKafkaCtx.Err()
-		default:
-			conn, err := net.Dial("tcp", cfg.Kafka.Brokers[0])
-			if err == nil {
-				if closeErr := conn.Close(); closeErr != nil {
-					log.Printf("Warning: error closing test connection to Kafka: %v", closeErr)
-				}
-				log.Println("Kafka is ready")
-				goto kafkaReady
-			}
-			log.Printf("Kafka is not ready yet: %v", err)
-			time.Sleep(1 * time.Second)
-		}
-	}
-kafkaReady:
+	// Initialize song enricher
+	songEnricher := service.NewSongEnricherService(apiClient)
 
 	// Initialize repo and service
 	repo := pgrepo.NewSongRepo(db)
-	songService := service.NewSongService(repo)
+	songService := service.NewSongService(repo, songEnricher)
 
 	// Create HTTP server
 	router := transport.SetupRouter(songService)
@@ -89,12 +69,6 @@ kafkaReady:
 
 	// Create gRPC server
 	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
-
-	// Create Kafka service
-	kafkaService, err := song_updates.NewSongUpdateService(&cfg.Kafka)
-	if err != nil {
-		return fmt.Errorf("failed to create new song Kafka service: %w", err)
-	}
 
 	// Create a context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -107,7 +81,6 @@ kafkaReady:
 	}{
 		{"HTTP", httpServer},
 		{"gRPC", grpcServer},
-		{"Kafka", kafkaService},
 	}
 
 	for _, svc := range services {
@@ -142,13 +115,6 @@ kafkaReady:
 	defer grpcCancel()
 	if err := grpcServer.Shutdown(grpcCtx); err != nil {
 		return fmt.Errorf("error stopping gRPC server: %w", err)
-	}
-
-	// 2. Then Kafka service
-	kafkaCtx, kafkaCancel := context.WithTimeout(context.Background(), kafkaShutdownTimeout)
-	defer kafkaCancel()
-	if err := kafkaService.Shutdown(kafkaCtx); err != nil {
-		return fmt.Errorf("error stopping Kafka service: %w", err)
 	}
 
 	log.Println("Graceful shutdown completed")
