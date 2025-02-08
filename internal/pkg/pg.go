@@ -36,6 +36,10 @@ type PostgresDB struct {
 	gorm *gorm.DB
 }
 
+func NewPostgresDB(db *gorm.DB) *PostgresDB {
+	return &PostgresDB{gorm: db}
+}
+
 // Close closes the database connection
 func (db *PostgresDB) Close() error {
 	sqlDB, err := db.gorm.DB()

@@ -34,8 +34,8 @@ func (m *MockSongRepo) CreateSong(ctx context.Context, song *domain.Song) (*doma
 	return args.Get(0).(*domain.Song), args.Error(1)
 }
 
-func (m *MockSongRepo) UpdateSong(ctx context.Context, id int, song *domain.Song) (*domain.Song, error) {
-	args := m.Called(ctx, id, song)
+func (m *MockSongRepo) UpdateSong(ctx context.Context, song *domain.Song) (*domain.Song, error) {
+	args := m.Called(ctx, song)
 	return args.Get(0).(*domain.Song), args.Error(1)
 }
 
@@ -55,9 +55,19 @@ func (m *MockSongRepo) GetSongVerses(ctx context.Context, id int, page, size int
 	return args.Get(0).([]string), args.Get(1).(int), args.Error(2)
 }
 
+// Mock SongEnricher
+type MockSongEnricher struct {
+	mock.Mock
+}
+
+func (m *MockSongEnricher) EnrichSong(_ context.Context, _ *domain.Song) error {
+	return nil
+}
+
 func TestGetSong(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	expectedSong := &domain.Song{
@@ -79,7 +89,8 @@ func TestGetSong(t *testing.T) {
 
 func TestGetSongs(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	filter := map[string]string{"title": "Test"}
@@ -110,7 +121,8 @@ func TestGetSongs(t *testing.T) {
 
 func TestCreateSong(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	newSong := &domain.Song{
@@ -141,7 +153,8 @@ func TestCreateSong(t *testing.T) {
 
 func TestUpdateSong(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 1
@@ -154,9 +167,9 @@ func TestUpdateSong(t *testing.T) {
 		Link:        "http://example.com/updated",
 	}
 
-	mockRepo.On("UpdateSong", ctx, songID, updatedSong).Return(updatedSong, nil)
+	mockRepo.On("UpdateSong", ctx, updatedSong).Return(updatedSong, nil)
 
-	result, err := service.UpdateSong(ctx, songID, updatedSong)
+	result, err := service.UpdateSong(ctx, updatedSong)
 
 	assert.NoError(t, err)
 	assert.Equal(t, updatedSong, result)
@@ -165,7 +178,8 @@ func TestUpdateSong(t *testing.T) {
 
 func TestPartialUpdateSong(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 1
@@ -191,7 +205,8 @@ func TestPartialUpdateSong(t *testing.T) {
 
 func TestDeleteSong(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 1
@@ -206,7 +221,8 @@ func TestDeleteSong(t *testing.T) {
 
 func TestGetSongVerses(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 1
@@ -232,7 +248,8 @@ func TestGetSongVerses(t *testing.T) {
 // Error cases
 func TestGetSong_Error(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 999
@@ -248,7 +265,8 @@ func TestGetSong_Error(t *testing.T) {
 
 func TestDeleteSong_Error(t *testing.T) {
 	mockRepo := new(MockSongRepo)
-	service := NewSongService(mockRepo)
+	mockEnricher := new(MockSongEnricher)
+	service := NewSongService(mockRepo, mockEnricher)
 
 	ctx := context.Background()
 	songID := 999
