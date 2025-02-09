@@ -2,10 +2,12 @@ package transport
 
 import (
 	"fmt"
+	"songs/internal/app/config"
 	"time"
 )
 
 type SongRequest struct {
+	ID          int    `json:"id"`
 	GroupID     int    `json:"group_id"`
 	Title       string `json:"title"`
 	ReleaseDate string `json:"release_date"`
@@ -20,8 +22,8 @@ func (r *SongRequest) Validate() error {
 	if r.Text == "" {
 		return fmt.Errorf("text is required")
 	}
-	if _, err := time.Parse(time.RFC3339, r.ReleaseDate); err != nil {
-		return fmt.Errorf("invalid release_date format, expected RFC3339")
+	if _, err := time.Parse(config.DateFormat, r.ReleaseDate); err != nil {
+		return fmt.Errorf("invalid release_date format, expected YYYY-MM-DD: %w", err)
 	}
 	return nil
 }

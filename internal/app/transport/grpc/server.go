@@ -3,24 +3,28 @@ package grpc
 import (
 	"context"
 	"fmt"
-	googlegrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
-	_ "google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 	"log"
 	"net"
+	"songs/internal/app/config"
 	"songs/internal/app/domain"
 	pb "songs/internal/app/proto"
 	"songs/internal/app/service"
 	"strconv"
 	"time"
+
+	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
+	_ "google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 type Server struct {
 	pb.UnimplementedSongServiceServer
 	songService *service.SongService
 	addr        string
+	server      *googlegrpc.Server
+	listener    net.Listener
 }
 
 func NewServer(addr string, songService *service.SongService) *Server {
@@ -30,27 +34,34 @@ func NewServer(addr string, songService *service.SongService) *Server {
 	}
 }
 
-func (s *Server) Run() error {
-	listener, err := net.Listen("tcp", s.addr)
+func (s *Server) Start(_ context.Context) error {
+	var err error
+	s.listener, err = net.Listen("tcp", s.addr)
 	if err != nil {
-		return fmt.Errorf("failed to listen on %s: %v", s.addr, err)
+		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}
 
-	grpcServer := googlegrpc.NewServer()
-	pb.RegisterSongServiceServer(grpcServer, s)
-
-	reflection.Register(grpcServer)
+	s.server = googlegrpc.NewServer()
+	pb.RegisterSongServiceServer(s.server, s)
+	reflection.Register(s.server)
 
 	log.Printf("Starting gRPC server on %s", s.addr)
-	if err := grpcServer.Serve(listener); err != nil {
-		return fmt.Errorf("failed to serve: %v", err)
-	}
+	go func() {
+		if err := s.server.Serve(s.listener); err != nil {
+			log.Printf("Failed to serve gRPC: %v", err)
+		}
+	}()
 
 	return nil
 }
 
-func (s *Server) Stop() {
-	//pass TODO: add method
+func (s *Server) Shutdown(_ context.Context) error {
+	log.Println("Stopping gRPC server...")
+	if s.server != nil {
+		s.server.GracefulStop()
+		log.Println("gRPC server stopped")
+	}
+	return nil
 }
 
 func (s *Server) GetSong(ctx context.Context, req *pb.GetSongRequest) (*pb.GetSongResponse, error) {
@@ -73,7 +84,7 @@ func (s *Server) GetSong(ctx context.Context, req *pb.GetSongRequest) (*pb.GetSo
 			Id:          strconv.Itoa(song.ID),
 			Group:       strconv.Itoa(song.GroupID),
 			Name:        song.Title,
-			ReleaseDate: song.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: song.ReleaseDate.Format(config.DateFormat),
 			Text:        song.Text,
 			Link:        song.Link,
 		},
@@ -116,7 +127,7 @@ func (s *Server) ListSongs(ctx context.Context, req *pb.ListSongsRequest) (*pb.L
 			Id:          strconv.Itoa(song.ID),
 			Group:       strconv.Itoa(song.GroupID),
 			Name:        song.Title,
-			ReleaseDate: song.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: song.ReleaseDate.Format(config.DateFormat),
 			Text:        song.Text,
 			Link:        song.Link,
 		})
@@ -139,7 +150,7 @@ func (s *Server) CreateSong(ctx context.Context, req *pb.CreateSongRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "invalid group ID format")
 	}
 
-	releaseDate, err := time.Parse("2006-01-02", req.ReleaseDate)
+	releaseDate, err := time.Parse(config.DateFormat, req.ReleaseDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid release date format")
 	}
@@ -162,7 +173,7 @@ func (s *Server) CreateSong(ctx context.Context, req *pb.CreateSongRequest) (*pb
 			Id:          strconv.Itoa(createdSong.ID),
 			Group:       strconv.Itoa(createdSong.GroupID),
 			Name:        createdSong.Title,
-			ReleaseDate: createdSong.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: createdSong.ReleaseDate.Format(config.DateFormat),
 			Text:        createdSong.Text,
 			Link:        createdSong.Link,
 		},
@@ -180,7 +191,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 		return nil, status.Error(codes.InvalidArgument, "invalid group ID format")
 	}
 
-	releaseDate, err := time.Parse("2006-01-02", req.ReleaseDate)
+	releaseDate, err := time.Parse(config.DateFormat, req.ReleaseDate)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid release date format")
 	}
@@ -194,7 +205,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 		Link:        req.Link,
 	}
 
-	updatedSong, err := s.songService.UpdateSong(ctx, songID, song)
+	updatedSong, err := s.songService.UpdateSong(ctx, song)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update song")
 	}
@@ -204,7 +215,7 @@ func (s *Server) UpdateSong(ctx context.Context, req *pb.UpdateSongRequest) (*pb
 			Id:          strconv.Itoa(updatedSong.ID),
 			Group:       strconv.Itoa(updatedSong.GroupID),
 			Name:        updatedSong.Title,
-			ReleaseDate: updatedSong.ReleaseDate.Format("2006-01-02"),
+			ReleaseDate: updatedSong.ReleaseDate.Format(config.DateFormat),
 			Text:        updatedSong.Text,
 			Link:        updatedSong.Link,
 		},

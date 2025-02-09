@@ -10,3 +10,9 @@ type Song struct {
 	Text        string
 	Link        string
 }
+
+type SongDetail struct {
+	ReleaseDate string
+	Text        string
+	Link        string
+}

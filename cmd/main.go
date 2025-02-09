@@ -1,22 +1,29 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"log"
 	"os"
 	"os/signal"
+	"songs/internal/app/infrastructure/musicapi"
+	"syscall"
+	"time"
+
+	"songs/internal/app/common"
 	"songs/internal/app/config"
 	"songs/internal/app/repository/pgrepo"
 	"songs/internal/app/service"
+	"songs/internal/app/transport"
 	"songs/internal/app/transport/grpc"
 	"songs/internal/app/transport/http"
 	pg "songs/internal/pkg"
-	"sync"
-	"syscall"
+)
+
+const (
+	httpShutdownTimeout = 10 * time.Second
+	grpcShutdownTimeout = 10 * time.Second
+	// dbShutdownTimeout    = 5 * time.Second
 )
 
 func main() {
@@ -27,86 +34,89 @@ func main() {
 }
 
 func run() error {
-	// read config
-	cfg := config.Read()
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return fmt.Errorf("config.GetConfig failed: %w", err)
+	}
 
-	pgDB, err := pg.Dial(cfg.DSN)
+	// Initialize DB connection
+	db, err := pg.Dial(cfg.DSN)
 	if err != nil {
 		return fmt.Errorf("pg.Dial failed: %w", err)
 	}
 
-	if pgDB != nil {
-		if err := runPgMigrations(cfg.MigrationsPath, cfg.DSN); err != nil {
-			return fmt.Errorf("runPgMigrations failed: %w", err)
+	// Access the underlying sql.DB instance and call Close
+	// https://forum.golangbridge.org/t/cant-close-db-connection-with-db-close/34657/2
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database connection: %v", err)
 		}
-	}
+	}()
 
-	// Initialize repo
-	songRepo := pgrepo.NewSongRepo(pgDB)
-	// Initialize the song service
-	songService := service.NewSongService(songRepo)
+	// Create client for external Music API
+	apiClient := musicapi.NewClient(cfg.MusicAPIURL)
 
-	// Create servers
-	httpServer := http.NewServer(cfg.HTTPAddr, songService)
+	// Initialize song enricher
+	songEnricher := service.NewSongEnricherService(apiClient)
+
+	// Initialize repo and service
+	repo := pgrepo.NewSongRepo(db)
+	songService := service.NewSongService(repo, songEnricher)
+
+	// Create HTTP server
+	router := transport.SetupRouter(songService)
+	httpServer := http.NewServer(cfg.HTTPAddr, router)
+
+	// Create gRPC server
 	grpcServer := grpc.NewServer(cfg.GRPCAddr, songService)
 
-	// Channel for graceful shutdown
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+	// Create a context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// WaitGroup for tracking running servers
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-
-	// Start HTTP server
-	go func() {
-		defer wg.Done()
-		if err := httpServer.Run(); err != nil {
-			log.Printf("HTTP server error: %v", err)
-		}
-	}()
-
-	// Start gRPC server
-	go func() {
-		defer wg.Done()
-		if err := grpcServer.Run(); err != nil {
-			log.Printf("gRPC server error: %v", err)
-		}
-	}()
-
-	// Wait for shutdown signal
-	<-shutdown
-	log.Println("Shutting down servers...")
-
-	// Graceful shutdown
-	//httpServer.Stop()
-	grpcServer.Stop()
-
-	wg.Wait()
-	log.Println("Servers stopped")
-
-	return nil
-}
-
-func runPgMigrations(path, dsn string) error {
-	if path == "" {
-		return errors.New("no migrations path provided")
-	}
-	if dsn == "" {
-		return errors.New("no DSN provided")
+	// Run all services
+	services := []struct {
+		name    string
+		service common.Lifecycle
+	}{
+		{"HTTP", httpServer},
+		{"gRPC", grpcServer},
 	}
 
-	log.Println("Initializing migrations")
-	m, err := migrate.New(path, dsn)
-	if err != nil {
-		return err
+	for _, svc := range services {
+		go func(name string, service common.Lifecycle) {
+			log.Printf("Starting %s service...", name)
+			if err := service.Start(ctx); err != nil {
+				log.Printf("Error starting %s service: %v", name, err)
+				cancel()
+			}
+		}(svc.name, svc.service)
 	}
 
-	log.Println("Running migrations")
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
+	// Waiting for a signal for a graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("Received shutdown signal. Starting graceful shutdown...")
+
+	// Cancel context to start shutdown process
+	cancel()
+
+	// stop services sequentially in the correct order
+	// 1. HTTP and gRPC first (they accept incoming requests)
+	httpCtx, httpCancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer httpCancel()
+	if err := httpServer.Shutdown(httpCtx); err != nil {
+		return fmt.Errorf("error stopping HTTP server: %w", err)
 	}
 
-	log.Println("Migrations completed successfully")
+	grpcCtx, grpcCancel := context.WithTimeout(context.Background(), grpcShutdownTimeout)
+	defer grpcCancel()
+	if err := grpcServer.Shutdown(grpcCtx); err != nil {
+		return fmt.Errorf("error stopping gRPC server: %w", err)
+	}
+
+	log.Println("Graceful shutdown completed")
 	return nil
 }

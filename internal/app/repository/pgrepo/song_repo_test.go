@@ -3,7 +3,10 @@ package pgrepo
 import (
 	"context"
 	"database/sql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"regexp"
+	pg "songs/internal/pkg"
 	"testing"
 	"time"
 
@@ -11,8 +14,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func setupTest(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *SongRepo) {
@@ -27,12 +28,14 @@ func setupTest(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *SongRepo) {
 		DriverName: "postgres",
 	})
 
-	db, err := gorm.Open(dialector, &gorm.Config{})
+	gormDB, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open gorm connection: %v", err)
 	}
 
-	repo := NewSongRepo(db)
+	mockPostgresDB := pg.NewPostgresDB(gormDB)
+
+	repo := NewSongRepo(mockPostgresDB)
 	return mockDB, mock, repo
 }
 
@@ -190,7 +193,7 @@ func TestGetSong_InvalidID(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, song)
-	assert.Contains(t, err.Error(), "invalid song ID")
+	assert.Contains(t, err.Error(), "invalid ID provided")
 }
 
 func TestGetSongs_EmptyResult(t *testing.T) {
@@ -255,6 +258,6 @@ func TestCreateSong_Error(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, createdSong)
-	assert.Contains(t, err.Error(), "failed to create song")
+	assert.Contains(t, err.Error(), "database error occurred")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
